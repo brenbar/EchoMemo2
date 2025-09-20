@@ -1,0 +1,21 @@
+{
+  "name": "EchoMemo",
+  "short_name": "EchoMemo",
+  "description": "Record and listen to your own voice to memorize anything.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#374151",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EchoMemo</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#374151">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- WaveSurfer.js for audio visualization and trimming -->
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.min.js"></script>
+
+    <style>
+        /* Custom styles for a cleaner look and feel */
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        /* Simple transition for view switching */
+        .view {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .view.active {
+            display: flex;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Styling for the audio recording indicator */
+        .recording-dot {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+
+        /* Custom styles for WaveSurfer region handles */
+        .wavesurfer-region:hover {
+            background-color: rgba(255, 255, 255, 0.25) !important;
+        }
+        .wavesurfer-region::before,
+        .wavesurfer-region::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 24px;
+            background-color: white;
+            border-radius: 4px;
+            cursor: col-resize;
+            z-index: 10;
+        }
+        .wavesurfer-region::before {
+            left: 2px;
+        }
+        .wavesurfer-region::after {
+            right: 2px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white antialiased">
+
+    <div id="app-container" class="max-w-lg mx-auto h-screen flex flex-col">
+
+        <!-- ===== Main List View ===== -->
+        <div id="view-list" class="view flex-col h-full w-full p-4 active">
+            <header class="flex items-center justify-between pb-4 border-b border-gray-700">
+                <h1 class="text-2xl font-bold text-gray-100">EchoMemo</h1>
+                <button id="install-button" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Install App</button>
+            </header>
+            <div id="recordings-list" class="flex-grow overflow-y-auto py-4 space-y-3" style="display: none;">
+                <!-- Recordings will be populated here by JavaScript -->
+            </div>
+            <div id="empty-state-container" class="flex-grow flex items-center justify-center">
+                 <p id="empty-state" class="text-gray-400 text-center">No memos yet. Tap 'Record New' to start!</p>
+            </div>
+            <footer class="pt-4">
+                <button id="record-new-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg flex items-center justify-center gap-2 transition-transform duration-200 active:scale-95">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" x2="12" y1="19" y2="22"></line></svg>
+                    Record New Memo
+                </button>
+            </footer>
+        </div>
+
+        <!-- ===== Recording View ===== -->
+        <div id="view-record" class="view flex-col items-center justify-center h-full w-full p-4 text-center">
+             <h2 class="text-xl font-semibold mb-4 text-gray-300">Recording...</h2>
+             <div class="recording-dot w-24 h-24 bg-red-500 rounded-full flex items-center justify-center mb-6">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" x2="12" y1="19" y2="22"></line></svg>
+             </div>
+             <p id="recording-timer" class="text-3xl font-mono mb-8">00:00.0</p>
+             <button id="stop-recording-btn" class="w-full max-w-xs bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-4 rounded-lg transition-transform duration-200 active:scale-95">Stop Recording</button>
+        </div>
+
+        <!-- ===== Trim View ===== -->
+        <div id="view-trim" class="view flex-col h-full w-full">
+            <header class="p-4 flex-shrink-0">
+                <h2 class="text-xl font-semibold text-center text-gray-300">Trim Your Memo</h2>
+                <p class="text-center text-gray-400 text-sm">Drag the handles to select the part you want to keep.</p>
+            </header>
+            <div class="flex-grow p-4 min-h-0">
+                <div id="waveform" class="w-full h-full bg-gray-800 rounded-lg"></div>
+            </div>
+            <footer class="p-4 flex-shrink-0 flex gap-4">
+                <button id="cancel-trim-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition-colors">Cancel</button>
+                <button id="save-trim-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">Save</button>
+            </footer>
+        </div>
+
+        <!-- ===== Playback View ===== -->
+        <div id="view-play" class="view flex-col h-full w-full p-4">
+            <header class="flex items-center pb-4 flex-shrink-0">
+                <button id="back-to-list-btn" class="p-2 rounded-full hover:bg-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </button>
+                <h2 id="playback-title" class="text-xl font-semibold text-center flex-grow truncate px-4">Playing Memo</h2>
+            </header>
+            <div class="flex-grow flex flex-col items-center justify-center text-center">
+                <div class="bg-gray-800 p-8 rounded-full mb-8">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 10v3c0 .6.4 1 1 1h1a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H3c-.6 0-1-.4-1-1v-3a2 2 0 0 1 2-2 2 2 0 0 1-2-2z"/><path d="M22 10v3c0 .6-.4 1-1 1h-1a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1c.6 0 1-.4 1-1v-3a2 2 0 0 0-2-2 2 2 0 0 0 2-2z"/><path d="M7 10a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H7z"/><path d="M15 10a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2h-1z"/></svg>
+                </div>
+                <div class="w-full max-w-sm">
+                    <div class="flex justify-between text-xs text-gray-400 font-mono mb-2">
+                        <span id="current-time">0:00</span>
+                        <span id="total-time">0:00</span>
+                    </div>
+                    <input type="range" id="seek-bar" class="w-full" value="0" step="0.1">
+                </div>
+                <div class="flex items-center gap-6 mt-6">
+                    <button id="play-pause-btn" class="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center text-white transition-transform duration-200 active:scale-90">
+                        <!-- Play/Pause icon will be set by JS -->
+                    </button>
+                </div>
+            </div>
+            <audio id="audio-player" loop></audio>
+        </div>
+
+    </div>
+    
+    <!-- ===== Save Modal ===== -->
+    <div id="save-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-sm">
+            <h3 class="text-lg font-medium mb-4">Save Memo</h3>
+            <input type="text" id="memo-name-input" class="w-full bg-gray-700 text-white rounded-md p-2 mb-4 border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Enter a name...">
+            <div class="flex justify-end gap-3">
+                <button id="cancel-save-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition-colors">Cancel</button>
+                <button id="confirm-save-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Save</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- Globals & State ---
+            const DB_NAME = 'EchoMemoDB';
+            const DB_VERSION = 1;
+            const STORE_NAME = 'recordings';
+            let db;
+
+            let mediaRecorder;
+            let recordedChunks = [];
+            let recordingTimerInterval;
+            let recordingStartTime;
+            
+            let tempAudioBlob = null;
+            let wavesurfer = null;
+            let trimRegion = null;
+            
+            let currentPlayingAudio = null;
+            let currentPlayingInfo = null;
+            
+            // --- UI Elements ---
+            const views = {
+                list: document.getElementById('view-list'),
+                record: document.getElementById('view-record'),
+                trim: document.getElementById('view-trim'),
+                play: document.getElementById('view-play'),
+            };
+            const recordNewBtn = document.getElementById('record-new-btn');
+            const stopRecordingBtn = document.getElementById('stop-recording-btn');
+            const recordingTimerEl = document.getElementById('recording-timer');
+            const recordingsListEl = document.getElementById('recordings-list');
+            const waveformEl = document.getElementById('waveform');
+            const saveTrimBtn = document.getElementById('save-trim-btn');
+            const cancelTrimBtn = document.getElementById('cancel-trim-btn');
+            const saveModal = document.getElementById('save-modal');
+            const memoNameInput = document.getElementById('memo-name-input');
+            const confirmSaveBtn = document.getElementById('confirm-save-btn');
+            const cancelSaveBtn = document.getElementById('cancel-save-btn');
+            const audioPlayer = document.getElementById('audio-player');
+            const playbackTitle = document.getElementById('playback-title');
+            const playPauseBtn = document.getElementById('play-pause-btn');
+            const seekBar = document.getElementById('seek-bar');
+            const currentTimeEl = document.getElementById('current-time');
+            const totalTimeEl = document.getElementById('total-time');
+            const backToListBtn = document.getElementById('back-to-list-btn');
+
+            // --- View Management ---
+            const showView = (viewId) => {
+                Object.values(views).forEach(v => v.classList.remove('active'));
+                views[viewId].classList.add('active');
+            };
+
+            // --- Database ---
+            function initDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+                    request.onerror = (event) => reject("Database error: " + event.target.errorCode);
+                    
+                    request.onsuccess = (event) => {
+                        db = event.target.result;
+                        resolve();
+                    };
+
+                    request.onupgradeneeded = (event) => {
+                        let db = event.target.result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            db.createObjectStore(STORE_NAME, { keyPath: 'id', autoIncrement: true });
+                        }
+                    };
+                });
+            }
+
+            // --- Audio Recording ---
+            async function startRecording() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    showView('record');
+                    recordedChunks = [];
+
+                    // Find a supported MIME type, preferring mp4 for wider compatibility
+                    const mimeTypes = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
+                    const supportedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
+
+                    if (!supportedMimeType) {
+                        alert("No supported audio format found for recording.");
+                        showView('list');
+                        return;
+                    }
+
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: supportedMimeType });
+                    mediaRecorder.ondataavailable = event => recordedChunks.push(event.data);
+                    
+                    mediaRecorder.onstop = () => {
+                        tempAudioBlob = new Blob(recordedChunks, { type: supportedMimeType });
+                        console.log(`Recording stopped. Blob created:`, tempAudioBlob);
+                        stream.getTracks().forEach(track => track.stop()); // Release microphone
+                        clearInterval(recordingTimerInterval);
+                        initTrimView();
+                    };
+                    
+                    mediaRecorder.start();
+                    recordingStartTime = Date.now();
+                    recordingTimerInterval = setInterval(updateRecordingTimer, 100);
+
+                } catch (err) {
+                    console.error('Error accessing microphone:', err);
+                    alert('Could not access the microphone. Please grant permission and try again.');
+                    showView('list');
+                }
+            }
+
+            function stopRecording() {
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    mediaRecorder.stop();
+                }
+            }
+
+            function updateRecordingTimer() {
+                const elapsed = Date.now() - recordingStartTime;
+                const minutes = String(Math.floor((elapsed / 1000 / 60) % 60)).padStart(2, '0');
+                const seconds = String(Math.floor((elapsed / 1000) % 60)).padStart(2, '0');
+                const milliseconds = String(Math.floor((elapsed % 1000) / 100)).padStart(1, '0');
+                recordingTimerEl.textContent = `${minutes}:${seconds}.${milliseconds}`;
+            }
+
+            // --- Trim View ---
+            function initTrimView() {
+                if (!tempAudioBlob) {
+                    console.error("initTrimView called, but tempAudioBlob is null.");
+                    return;
+                }
+                showView('trim');
+
+                // Use a timeout to ensure the view is visible and has dimensions
+                setTimeout(() => {
+                    if (wavesurfer) {
+                        wavesurfer.destroy();
+                    }
+                    
+                    console.log("Waveform container element:", waveformEl);
+                    console.log("Container dimensions:", { 
+                        width: waveformEl.clientWidth, 
+                        height: waveformEl.clientHeight 
+                    });
+
+                    // 1. Initialize the Regions plugin first
+                    const wsRegions = WaveSurfer.Regions.create();
+                    let isProgrammaticRegion = false;
+
+                    // This listener handles when the user creates a new region by dragging,
+                    // ensuring only one region exists at a time.
+                    wsRegions.on('region-created', (region) => {
+                        if (isProgrammaticRegion) return;
+
+                        // Clear any existing regions before setting the new one
+                        wsRegions.clearRegions();
+                        // Redraw the region and assign it to our tracking variable
+                        trimRegion = wsRegions.addRegion({ 
+                            ...region, 
+                            color: 'rgba(255, 255, 255, 0.2)',
+                            drag: true,
+                            resize: true,
+                        });
+                    });
+
+                    // 2. Create WaveSurfer instance, passing the plugin in the config
+                    wavesurfer = WaveSurfer.create({
+                        container: waveformEl,
+                        waveColor: '#6366f1',
+                        progressColor: '#4f46e5',
+                        cursorColor: '#fff',
+                        barWidth: 3,
+                        barRadius: 3,
+                        height: 'auto',
+                        plugins: [wsRegions],
+                    });
+
+                    wavesurfer.on('error', (err) => console.error('WaveSurfer error:', err));
+                    
+                    wavesurfer.on('ready', () => {
+                        console.log("WaveSurfer is ready.");
+                        // Use a flag to prevent the region-created event from causing an infinite loop
+                        isProgrammaticRegion = true;
+                        trimRegion = wsRegions.addRegion({
+                            start: 0,
+                            end: wavesurfer.getDuration(),
+                            color: 'rgba(255, 255, 255, 0.2)',
+                            drag: true,
+                            resize: true,
+                        });
+                        isProgrammaticRegion = false;
+                    });
+
+                    const audioUrl = URL.createObjectURL(tempAudioBlob);
+                    console.log("Loading audio from URL:", audioUrl);
+                    wavesurfer.load(audioUrl);
+                }, 100); // A small delay of 100ms
+            }
+
+            // --- List View & Data Handling ---
+            async function renderRecordingsList() {
+                const transaction = db.transaction(STORE_NAME, 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const recordings = await new Promise(resolve => store.getAll().onsuccess = e => resolve(e.target.result));
+                
+                recordingsListEl.innerHTML = ''; // Clear list
+                const emptyStateContainer = document.getElementById('empty-state-container');
+
+                if (recordings.length === 0) {
+                    if(emptyStateContainer) emptyStateContainer.style.display = 'flex';
+                    recordingsListEl.style.display = 'none';
+                } else {
+                    if(emptyStateContainer) emptyStateContainer.style.display = 'none';
+                    recordingsListEl.style.display = 'block';
+                    recordings.reverse().forEach(rec => {
+                        const duration = rec.endTime - rec.startTime;
+                        const listItem = document.createElement('div');
+                        listItem.className = 'bg-gray-800 p-4 rounded-lg flex items-center justify-between cursor-pointer hover:bg-gray-700 transition-colors';
+                        listItem.innerHTML = `
+                            <div>
+                                <h3 class="font-semibold text-lg">${rec.name}</h3>
+                                <p class="text-sm text-gray-400">Duration: ${formatTime(duration)}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button data-id="${rec.id}" class="delete-btn p-2 rounded-full hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                </button>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+                            </div>
+                        `;
+                        listItem.addEventListener('click', (e) => {
+                            if (!e.target.closest('.delete-btn')) {
+                                playRecording(rec.id);
+                            }
+                        });
+                        recordingsListEl.appendChild(listItem);
+                    });
+                }
+            }
+
+            async function saveRecording(name, blob, startTime, endTime) {
+                 const transaction = db.transaction(STORE_NAME, 'readwrite');
+                 const store = transaction.objectStore(STORE_NAME);
+                 store.add({ name, blob, startTime, endTime });
+                 return new Promise(resolve => transaction.oncomplete = resolve);
+            }
+
+            async function deleteRecording(id) {
+                // Removed confirm() call to prevent issues in sandboxed environments.
+                // The deletion is now immediate.
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                store.delete(id);
+                transaction.oncomplete = () => renderRecordingsList();
+            }
+
+            // --- Playback View ---
+            async function playRecording(id) {
+                const transaction = db.transaction(STORE_NAME, 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const recording = await new Promise(resolve => store.get(id).onsuccess = e => resolve(e.target.result));
+                
+                if (!recording) return;
+
+                currentPlayingInfo = recording;
+                if (currentPlayingAudio) {
+                    URL.revokeObjectURL(currentPlayingAudio);
+                }
+                currentPlayingAudio = URL.createObjectURL(recording.blob);
+                
+                audioPlayer.src = currentPlayingAudio;
+                playbackTitle.textContent = recording.name;
+                
+                audioPlayer.onloadedmetadata = () => {
+                    audioPlayer.currentTime = recording.startTime;
+                    seekBar.max = recording.endTime;
+                    seekBar.min = recording.startTime;
+                    totalTimeEl.textContent = formatTime(recording.endTime - recording.startTime);
+                    audioPlayer.play();
+                };
+                
+                showView('play');
+            }
+            
+            function updatePlayPauseIcon(isPlaying) {
+                 playPauseBtn.innerHTML = isPlaying
+                    ? `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`
+                    : `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+            }
+
+            function updateSeekBar() {
+                if (!audioPlayer.paused) {
+                    seekBar.value = audioPlayer.currentTime;
+                    currentTimeEl.textContent = formatTime(audioPlayer.currentTime - currentPlayingInfo.startTime);
+                    
+                    // Custom loop logic for trimmed region
+                    if (audioPlayer.currentTime >= currentPlayingInfo.endTime) {
+                         audioPlayer.currentTime = currentPlayingInfo.startTime;
+                    }
+                }
+            }
+            
+            // --- Media Session API for lock screen controls ---
+            function setupMediaSession() {
+                if ('mediaSession' in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: currentPlayingInfo.name,
+                        artist: 'EchoMemo',
+                    });
+
+                    navigator.mediaSession.setActionHandler('play', () => audioPlayer.play());
+                    navigator.mediaSession.setActionHandler('pause', () => audioPlayer.pause());
+                    navigator.mediaSession.setActionHandler('seekto', (details) => {
+                        audioPlayer.currentTime = details.seekTime;
+                    });
+                }
+            }
+            
+            // --- Utility ---
+            function formatTime(seconds) {
+                const min = Math.floor(seconds / 60);
+                const sec = Math.floor(seconds % 60);
+                return `${min}:${String(sec).padStart(2, '0')}`;
+            }
+
+            // --- Event Listeners ---
+            recordNewBtn.addEventListener('click', startRecording);
+            stopRecordingBtn.addEventListener('click', stopRecording);
+            cancelTrimBtn.addEventListener('click', () => {
+                tempAudioBlob = null;
+                if(wavesurfer) wavesurfer.destroy();
+                showView('list');
+            });
+
+            saveTrimBtn.addEventListener('click', () => {
+                if (!trimRegion) {
+                    console.warn('Save clicked, but no trim region is selected.');
+                    // Add a visual shake effect to the button as feedback
+                    saveTrimBtn.classList.add('animate-head-shake');
+                    setTimeout(() => saveTrimBtn.classList.remove('animate-head-shake'), 500);
+                    return;
+                }
+                waveformEl.style.display = 'none'; // Hide waveform
+                saveModal.classList.remove('hidden');
+                saveModal.classList.add('flex');
+                memoNameInput.value = `Memo ${new Date().toLocaleString()}`;
+                memoNameInput.focus();
+                memoNameInput.select();
+            });
+            
+            cancelSaveBtn.addEventListener('click', () => {
+                saveModal.classList.add('hidden');
+                saveModal.classList.remove('flex');
+                waveformEl.style.display = 'block'; // Show waveform again
+            });
+
+            confirmSaveBtn.addEventListener('click', async () => {
+                const name = memoNameInput.value.trim();
+                if (!name) {
+                    // Replaced alert with a visual indicator for better UX
+                    memoNameInput.classList.add('ring-2', 'ring-red-500');
+                    setTimeout(() => memoNameInput.classList.remove('ring-2', 'ring-red-500'), 2000);
+                    return;
+                }
+                
+                const startTime = trimRegion.start;
+                const endTime = trimRegion.end;
+
+                await saveRecording(name, tempAudioBlob, startTime, endTime);
+
+                saveModal.classList.add('hidden');
+                saveModal.classList.remove('flex');
+                tempAudioBlob = null;
+                if(wavesurfer) wavesurfer.destroy();
+                waveformEl.style.display = 'block'; // Reset for next time
+
+                await renderRecordingsList();
+                showView('list');
+            });
+
+            recordingsListEl.addEventListener('click', (e) => {
+                if (e.target.closest('.delete-btn')) {
+                    const id = parseInt(e.target.closest('.delete-btn').dataset.id, 10);
+                    deleteRecording(id);
+                }
+            });
+            
+            playPauseBtn.addEventListener('click', () => {
+                if (audioPlayer.paused) audioPlayer.play();
+                else audioPlayer.pause();
+            });
+            
+            audioPlayer.addEventListener('play', () => {
+                updatePlayPauseIcon(true);
+                setupMediaSession();
+            });
+            audioPlayer.addEventListener('pause', () => updatePlayPauseIcon(false));
+            audioPlayer.addEventListener('timeupdate', updateSeekBar);
+            
+            seekBar.addEventListener('input', () => {
+                audioPlayer.currentTime = seekBar.value;
+            });
+            
+            backToListBtn.addEventListener('click', () => {
+                audioPlayer.pause();
+                audioPlayer.src = '';
+                if(currentPlayingAudio) URL.revokeObjectURL(currentPlayingAudio);
+                currentPlayingAudio = null;
+                currentPlayingInfo = null;
+                showView('list');
+            });
+
+
+            // --- PWA Installation ---
+            let deferredPrompt;
+            const installButton = document.getElementById('install-button');
+
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                installButton.classList.remove('hidden');
+            });
+
+            installButton.addEventListener('click', async () => {
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    console.log(`User response to the install prompt: ${outcome}`);
+                    deferredPrompt = null;
+                    installButton.classList.add('hidden');
+                }
+            });
+
+            window.addEventListener('appinstalled', () => {
+                installButton.classList.add('hidden');
+                deferredPrompt = null;
+                console.log('PWA was installed');
+            });
+
+            // --- App Initialization ---
+            async function main() {
+                await initDB();
+                await renderRecordingsList();
+                showView('list');
+                updatePlayPauseIcon(false); // Initial state
+            }
+            main();
+
+        }); // End DOMContentLoaded
+    </script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                }, err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
+
+
