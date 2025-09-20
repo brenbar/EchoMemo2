@@ -8,8 +8,8 @@ const urlsToCache = [
     'https://unpkg.com/wavesurfer.js@7',
     'https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.min.js',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap',
-    'icon-192.png',
-    'icon-512.png'
+    'EchoMemo192.png',
+    'EchoMemo512.png'
 ];
 
 // Install event: opens a cache and adds the core app files to it.
