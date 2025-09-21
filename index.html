@@ -104,13 +104,37 @@
         </div>
 
         <!-- ===== Recording View ===== -->
-        <div id="view-record" class="view flex-col items-center justify-center h-full w-full p-4 text-center">
-             <h2 class="text-xl font-semibold mb-4 text-gray-300">Recording...</h2>
-             <div class="recording-dot w-24 h-24 bg-red-500 rounded-full flex items-center justify-center mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" x2="12" y1="19" y2="22"></line></svg>
-             </div>
-             <p id="recording-timer" class="text-3xl font-mono mb-8">00:00.0</p>
-             <button id="stop-recording-btn" class="w-full max-w-xs bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-4 rounded-lg transition-transform duration-200 active:scale-95">Stop Recording</button>
+        <div id="view-record" class="view flex-col h-full w-full p-4">
+            <header class="p-4 flex-shrink-0 flex items-center justify-between">
+                 <button id="cancel-record-btn" class="p-2 rounded-full hover:bg-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </button>
+                <h2 id="record-view-title" class="text-xl font-semibold text-center text-gray-300">Prepare Memo</h2>
+                <div class="w-8"></div> <!-- Spacer -->
+            </header>
+
+            <div class="flex-grow flex flex-col items-center text-center min-h-0">
+                <!-- This will be shown during recording -->
+                <div id="recording-display" class="hidden w-full flex-shrink-0 text-center p-4">
+                    <div class="recording-dot w-12 h-12 bg-red-500 rounded-full flex items-center justify-center mb-2 mx-auto">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" x2="12" y1="19" y2="22"></line></svg>
+                    </div>
+                    <p id="recording-timer" class="text-2xl font-mono">00:00.0</p>
+                </div>
+
+                <!-- Script area, always visible in this view -->
+                <div id="script-display" class="w-full h-full flex flex-col">
+                    <textarea id="script-textarea" class="w-full flex-grow bg-gray-800 text-white rounded-md p-3 border border-gray-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Paste your script here..."></textarea>
+                </div>
+            </div>
+            
+            <footer class="pt-4 flex-shrink-0">
+                <button id="start-recording-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg flex items-center justify-center gap-2 transition-transform duration-200 active:scale-95">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+                    Start Recording
+                </button>
+                <button id="stop-recording-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-4 rounded-lg hidden transition-transform duration-200 active:scale-95">Stop Recording</button>
+            </footer>
         </div>
 
         <!-- ===== Trim View ===== -->
@@ -170,7 +194,6 @@
         </div>
     </div>
 
-
     <script>
         document.addEventListener('DOMContentLoaded', () => {
 
@@ -217,6 +240,14 @@
             const currentTimeEl = document.getElementById('current-time');
             const totalTimeEl = document.getElementById('total-time');
             const backToListBtn = document.getElementById('back-to-list-btn');
+            
+            // Recording View elements
+            const startRecordingBtn = document.getElementById('start-recording-btn');
+            const cancelRecordBtn = document.getElementById('cancel-record-btn');
+            const recordViewTitle = document.getElementById('record-view-title');
+            const recordingDisplay = document.getElementById('recording-display');
+            const scriptTextarea = document.getElementById('script-textarea');
+
 
             // --- View Management ---
             const showView = (viewId) => {
@@ -246,13 +277,29 @@
             }
 
             // --- Audio Recording ---
+            function prepareRecordingView() {
+                showView('record');
+                recordViewTitle.textContent = 'Prepare Memo';
+                recordingDisplay.classList.add('hidden');
+                startRecordingBtn.classList.remove('hidden');
+                stopRecordingBtn.classList.add('hidden');
+                scriptTextarea.value = ''; // Clear previous script
+                scriptTextarea.readOnly = false;
+            }
+
             async function startRecording() {
                 try {
                     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    showView('record');
                     recordedChunks = [];
 
-                    // Find a supported MIME type, preferring mp4 for wider compatibility
+                    // Update UI for recording state
+                    recordViewTitle.textContent = 'Recording...';
+                    recordingDisplay.classList.remove('hidden');
+                    startRecordingBtn.classList.add('hidden');
+                    stopRecordingBtn.classList.remove('hidden');
+                    scriptTextarea.readOnly = true; // Prevent editing while recording
+
+                    // Find a supported MIME type
                     const mimeTypes = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
                     const supportedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
 
@@ -267,8 +314,7 @@
                     
                     mediaRecorder.onstop = () => {
                         tempAudioBlob = new Blob(recordedChunks, { type: supportedMimeType });
-                        console.log(`Recording stopped. Blob created:`, tempAudioBlob);
-                        stream.getTracks().forEach(track => track.stop()); // Release microphone
+                        stream.getTracks().forEach(track => track.stop());
                         clearInterval(recordingTimerInterval);
                         initTrimView();
                     };
@@ -499,8 +545,14 @@
             }
 
             // --- Event Listeners ---
-            recordNewBtn.addEventListener('click', startRecording);
+            recordNewBtn.addEventListener('click', prepareRecordingView);
+            startRecordingBtn.addEventListener('click', startRecording);
             stopRecordingBtn.addEventListener('click', stopRecording);
+            
+            cancelRecordBtn.addEventListener('click', () => {
+                showView('list');
+            });
+
             cancelTrimBtn.addEventListener('click', () => {
                 tempAudioBlob = null;
                 if(wavesurfer) wavesurfer.destroy();
@@ -584,7 +636,6 @@
                 currentPlayingInfo = null;
                 showView('list');
             });
-
 
             // --- PWA Installation ---
             let deferredPrompt;
