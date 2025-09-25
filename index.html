@@ -443,6 +443,9 @@
                             resize: true,
                         });
                         isProgrammaticRegion = false;
+
+                        trimRegion.element.children[0].style.width = '40px';
+                        trimRegion.element.children[1].style.width = '40px';
                     });
 
                     const audioUrl = URL.createObjectURL(tempAudioBlob);
