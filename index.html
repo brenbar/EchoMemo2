@@ -147,8 +147,11 @@
                 <div id="waveform" class="w-full h-full bg-gray-800 rounded-lg"></div>
             </div>
             <footer class="p-4 flex-shrink-0 flex gap-4">
-                <button id="cancel-trim-btn" class="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition-colors">Cancel</button>
-                <button id="save-trim-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">Save</button>
+                <button id="cancel-trim-btn" class="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition-colors">Cancel</button>
+                <button id="play-pause-trim-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold p-3 rounded-lg transition-colors flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                </button>
+                <button id="save-trim-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">Save</button>
             </footer>
         </div>
 
@@ -235,6 +238,7 @@
             let tempAudioBlob = null;
             let wavesurfer = null;
             let trimRegion = null;
+            let isTrimPlaying = false;
             
             let currentPlayingAudio = null;
             let currentPlayingInfo = null;
@@ -255,6 +259,7 @@
             const waveformEl = document.getElementById('waveform');
             const saveTrimBtn = document.getElementById('save-trim-btn');
             const cancelTrimBtn = document.getElementById('cancel-trim-btn');
+            const playPauseTrimBtn = document.getElementById('play-pause-trim-btn');
             const saveModal = document.getElementById('save-modal');
             const memoNameInput = document.getElementById('memo-name-input');
             const confirmSaveBtn = document.getElementById('confirm-save-btn');
@@ -430,7 +435,7 @@
                     });
 
                     wavesurfer.on('error', (err) => console.error('WaveSurfer error:', err));
-                    
+
                     wavesurfer.on('ready', () => {
                         console.log("WaveSurfer is ready.");
                         // Use a flag to prevent the region-created event from causing an infinite loop
@@ -444,8 +449,28 @@
                         });
                         isProgrammaticRegion = false;
 
+                        wsRegions.on('region-out', (region) => {
+                            wavesurfer.pause();
+
+                            // reset cursor to start of region
+                            wavesurfer.seekTo(region.start / wavesurfer.getDuration());
+
+                            if (isTrimPlaying) {
+                                wavesurfer.play();
+                            }
+                        });
+
                         trimRegion.element.children[0].style.width = '40px';
                         trimRegion.element.children[1].style.width = '40px';
+                    });
+
+                    wavesurfer.on('finish', () => {
+                        // reset cursor to start of region
+                        wavesurfer.seekTo(trimRegion.start / wavesurfer.getDuration());
+
+                        if (isTrimPlaying) {
+                            wavesurfer.play();
+                        }
                     });
 
                     const audioUrl = URL.createObjectURL(tempAudioBlob);
@@ -588,6 +613,12 @@
                     : `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
             }
 
+            function updatePlayPauseTrimIcon(isPlaying) {
+                 playPauseTrimBtn.innerHTML = isPlaying
+                    ? `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`
+                    : `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+            }
+
             function updateSeekBar() {
                 if (!audioPlayer.paused) {
                     seekBar.value = audioPlayer.currentTime;
@@ -634,11 +665,34 @@
 
             cancelTrimBtn.addEventListener('click', () => {
                 tempAudioBlob = null;
+                if (isTrimPlaying) {
+                    wavesurfer.pause();
+                    isTrimPlaying = false;
+                }
                 if(wavesurfer) wavesurfer.destroy();
                 showView('list');
+                updatePlayPauseTrimIcon(false);
+            });
+
+            playPauseTrimBtn.addEventListener('click', () => {
+                if (!wavesurfer || !trimRegion) return;
+                if (isTrimPlaying) {
+                    isTrimPlaying = false;
+                    wavesurfer.stop();
+                } else {
+                    isTrimPlaying = true;
+                    wavesurfer.seekTo(trimRegion.start / wavesurfer.getDuration());
+                    wavesurfer.play();
+                }
+                updatePlayPauseTrimIcon(isTrimPlaying);
             });
 
             saveTrimBtn.addEventListener('click', () => {
+                if (isTrimPlaying) {
+                    wavesurfer.pause();
+                    isTrimPlaying = false;
+                    updatePlayPauseTrimIcon(false);
+                }
                 if (!trimRegion) {
                     console.warn('Save clicked, but no trim region is selected.');
                     // Add a visual shake effect to the button as feedback
