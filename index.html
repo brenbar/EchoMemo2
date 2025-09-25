@@ -194,6 +194,18 @@
         </div>
     </div>
 
+    <!-- ===== Rename Modal ===== -->
+    <div id="rename-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center p-4">
+        <div class="bg-gray-800 rounded-lg p-6 w-full max-w-sm">
+            <h3 class="text-lg font-medium mb-4">Rename Memo</h3>
+            <input type="text" id="rename-memo-name-input" class="w-full bg-gray-700 text-white rounded-md p-2 mb-4 border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none" placeholder="Enter a new name...">
+            <div class="flex justify-end gap-3">
+                <button id="cancel-rename-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition-colors">Cancel</button>
+                <button id="confirm-rename-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Rename</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ===== Delete Confirmation Modal ===== -->
     <div id="delete-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center p-4">
         <div class="bg-gray-800 rounded-lg p-6 w-full max-w-sm">
@@ -227,6 +239,7 @@
             let currentPlayingAudio = null;
             let currentPlayingInfo = null;
             let recordingToDeleteId = null; // To store the ID of the memo to be deleted
+            let recordingToRenameId = null; // To store the ID of the memo to be renamed
             
             // --- UI Elements ---
             const views = {
@@ -249,6 +262,10 @@
             const deleteModal = document.getElementById('delete-modal');
             const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
             const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+            const renameModal = document.getElementById('rename-modal');
+            const renameMemoNameInput = document.getElementById('rename-memo-name-input');
+            const confirmRenameBtn = document.getElementById('confirm-rename-btn');
+            const cancelRenameBtn = document.getElementById('cancel-rename-btn');
             const audioPlayer = document.getElementById('audio-player');
             const playbackTitle = document.getElementById('playback-title');
             const playPauseBtn = document.getElementById('play-pause-btn');
@@ -459,12 +476,25 @@
                                 <p class="text-sm text-gray-400">Duration: ${formatTime(duration)}</p>
                             </div>
                             <div class="flex items-center gap-2">
+                                <button data-id="${rec.id}" class="rename-btn p-2 rounded-full hover:bg-blue-500/20 text-gray-400 hover:text-blue-400 transition-colors">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                </button>
                                 <button data-id="${rec.id}" class="delete-btn p-2 rounded-full hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                                 </button>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-500"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
                             </div>
                         `;
+                        const renameBtn = listItem.querySelector('.rename-btn');
+                        renameBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            recordingToRenameId = parseInt(renameBtn.dataset.id, 10);
+                            renameMemoNameInput.value = rec.name;
+                            renameModal.classList.remove('hidden');
+                            renameModal.classList.add('flex');
+                            renameMemoNameInput.focus();
+                            renameMemoNameInput.select();
+                        });
+
                         const deleteBtn = listItem.querySelector('.delete-btn');
                         deleteBtn.addEventListener('click', (e) => {
                             e.stopPropagation(); // Prevent the playRecording from firing
@@ -500,6 +530,24 @@
                     deleteModal.classList.add('hidden');
                     deleteModal.classList.remove('flex');
                     recordingToDeleteId = null;
+                };
+            }
+
+            async function renameRecording(id, newName) {
+                const transaction = db.transaction(STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.get(id);
+                request.onsuccess = (e) => {
+                    const data = e.target.result;
+                    data.name = newName;
+                    const updateRequest = store.put(data);
+                    updateRequest.onsuccess = () => {
+                        renderRecordingsList();
+                        // Hide modal and reset ID after renaming
+                        renameModal.classList.add('hidden');
+                        renameModal.classList.remove('flex');
+                        recordingToRenameId = null;
+                    };
                 };
             }
 
@@ -643,6 +691,19 @@
                 deleteModal.classList.add('hidden');
                 deleteModal.classList.remove('flex');
                 recordingToDeleteId = null;
+            });
+
+            confirmRenameBtn.addEventListener('click', () => {
+                const newName = renameMemoNameInput.value.trim();
+                if (newName && recordingToRenameId !== null) {
+                    renameRecording(recordingToRenameId, newName);
+                }
+            });
+
+            cancelRenameBtn.addEventListener('click', () => {
+                renameModal.classList.add('hidden');
+                renameModal.classList.remove('flex');
+                recordingToRenameId = null;
             });
 
             playPauseBtn.addEventListener('click', () => {
