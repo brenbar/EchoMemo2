@@ -383,6 +383,101 @@
             }
 
             // --- Trim View ---
+            async function trimAudioBlob(blob, startTime, endTime) {
+                // Create an AudioContext to decode and process the audio
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Convert blob to ArrayBuffer
+                const arrayBuffer = await blob.arrayBuffer();
+                
+                // Decode the audio data
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                
+                // Calculate the sample range to extract
+                const sampleRate = audioBuffer.sampleRate;
+                const startSample = Math.floor(startTime * sampleRate);
+                const endSample = Math.floor(endTime * sampleRate);
+                const numSamples = endSample - startSample;
+                
+                // Create a new buffer for the trimmed audio
+                const trimmedBuffer = audioContext.createBuffer(
+                    audioBuffer.numberOfChannels,
+                    numSamples,
+                    sampleRate
+                );
+                
+                // Copy the trimmed portion from each channel
+                for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+                    const sourceData = audioBuffer.getChannelData(channel);
+                    const trimmedData = trimmedBuffer.getChannelData(channel);
+                    for (let i = 0; i < numSamples; i++) {
+                        trimmedData[i] = sourceData[startSample + i];
+                    }
+                }
+                
+                // Convert the trimmed buffer back to a blob
+                // We'll use WAV format for maximum compatibility
+                const wavBlob = audioBufferToWav(trimmedBuffer);
+                
+                return wavBlob;
+            }
+            
+            // Helper function to convert AudioBuffer to WAV blob
+            function audioBufferToWav(buffer) {
+                const numberOfChannels = buffer.numberOfChannels;
+                const sampleRate = buffer.sampleRate;
+                const format = 1; // PCM
+                const bitDepth = 16;
+                
+                const bytesPerSample = bitDepth / 8;
+                const blockAlign = numberOfChannels * bytesPerSample;
+                
+                const data = [];
+                for (let i = 0; i < buffer.length; i++) {
+                    for (let channel = 0; channel < numberOfChannels; channel++) {
+                        const sample = buffer.getChannelData(channel)[i];
+                        // Convert float to 16-bit PCM
+                        const s = Math.max(-1, Math.min(1, sample));
+                        data.push(s < 0 ? s * 0x8000 : s * 0x7FFF);
+                    }
+                }
+                
+                const dataLength = data.length * bytesPerSample;
+                const bufferLength = 44 + dataLength;
+                const arrayBuffer = new ArrayBuffer(bufferLength);
+                const view = new DataView(arrayBuffer);
+                
+                // WAV header
+                const writeString = (offset, string) => {
+                    for (let i = 0; i < string.length; i++) {
+                        view.setUint8(offset + i, string.charCodeAt(i));
+                    }
+                };
+                
+                writeString(0, 'RIFF');
+                view.setUint32(4, 36 + dataLength, true);
+                writeString(8, 'WAVE');
+                writeString(12, 'fmt ');
+                view.setUint32(16, 16, true); // fmt chunk size
+                view.setUint16(20, format, true);
+                view.setUint16(22, numberOfChannels, true);
+                view.setUint32(24, sampleRate, true);
+                view.setUint32(28, sampleRate * blockAlign, true);
+                view.setUint16(32, blockAlign, true);
+                view.setUint16(34, bitDepth, true);
+                writeString(36, 'data');
+                view.setUint32(40, dataLength, true);
+                
+                // Write PCM samples
+                let offset = 44;
+                for (let i = 0; i < data.length; i++) {
+                    view.setInt16(offset, data[i], true);
+                    offset += 2;
+                }
+                
+                return new Blob([arrayBuffer], { type: 'audio/wav' });
+            }
+
             function initTrimView() {
                 if (!tempAudioBlob) {
                     console.error("initTrimView called, but tempAudioBlob is null.");
@@ -495,13 +590,15 @@
                     if(emptyStateContainer) emptyStateContainer.style.display = 'none';
                     recordingsListEl.style.display = 'block';
                     recordings.reverse().forEach(rec => {
-                        const duration = rec.endTime - rec.startTime;
+                        // Duration is now simply endTime since startTime is 0 for trimmed audio
+                        const duration = rec.endTime;
+                        const fileSize = rec.blob ? rec.blob.size : 0;
                         const listItem = document.createElement('div');
                         listItem.className = 'bg-gray-800 p-4 rounded-lg flex items-center justify-between cursor-pointer hover:bg-gray-700 transition-colors';
                         listItem.innerHTML = `
                             <div>
                                 <h3 class="font-semibold text-lg">${rec.name}</h3>
-                                <p class="text-sm text-gray-400">Duration: ${formatTime(duration)}</p>
+                                <p class="text-sm text-gray-400">Duration: ${formatTime(duration)} • ${formatFileSize(fileSize)}</p>
                             </div>
                             <div class="flex items-center gap-2">
                                 <button data-id="${rec.id}" class="rename-btn p-2 rounded-full hover:bg-blue-500/20 text-gray-400 hover:text-blue-400 transition-colors">
@@ -597,10 +694,11 @@
                 playbackTitle.textContent = recording.name;
                 
                 audioPlayer.onloadedmetadata = () => {
-                    audioPlayer.currentTime = recording.startTime;
-                    seekBar.max = recording.endTime;
-                    seekBar.min = recording.startTime;
-                    totalTimeEl.textContent = formatTime(recording.endTime - recording.startTime);
+                    // Since we're now saving trimmed audio, it always starts at 0
+                    audioPlayer.currentTime = 0;
+                    seekBar.max = audioPlayer.duration;
+                    seekBar.min = 0;
+                    totalTimeEl.textContent = formatTime(audioPlayer.duration);
                     audioPlayer.play();
                 };
                 
@@ -622,12 +720,10 @@
             function updateSeekBar() {
                 if (!audioPlayer.paused) {
                     seekBar.value = audioPlayer.currentTime;
-                    currentTimeEl.textContent = formatTime(audioPlayer.currentTime - currentPlayingInfo.startTime);
+                    currentTimeEl.textContent = formatTime(audioPlayer.currentTime);
                     
-                    // Custom loop logic for trimmed region
-                    if (audioPlayer.currentTime >= currentPlayingInfo.endTime) {
-                         audioPlayer.currentTime = currentPlayingInfo.startTime;
-                    }
+                    // No need for custom loop logic since the audio is now trimmed
+                    // The native loop attribute handles looping
                 }
             }
             
@@ -652,6 +748,14 @@
                 const min = Math.floor(seconds / 60);
                 const sec = Math.floor(seconds % 60);
                 return `${min}:${String(sec).padStart(2, '0')}`;
+            }
+
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 B';
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
             }
 
             // --- Event Listeners ---
@@ -726,7 +830,11 @@
                 const startTime = trimRegion.start;
                 const endTime = trimRegion.end;
 
-                await saveRecording(name, tempAudioBlob, startTime, endTime);
+                // Actually trim the audio blob using Web Audio API
+                const trimmedBlob = await trimAudioBlob(tempAudioBlob, startTime, endTime);
+
+                // Save with 0 as start since we're saving the trimmed audio
+                await saveRecording(name, trimmedBlob, 0, endTime - startTime);
 
                 saveModal.classList.add('hidden');
                 saveModal.classList.remove('flex');
