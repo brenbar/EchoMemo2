@@ -89,7 +89,10 @@
                 <h1 class="text-2xl font-bold text-gray-100">EchoMemo</h1>
                 <button id="install-button" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Install App</button>
             </header>
-            <div id="recordings-list" class="flex-grow overflow-y-auto py-4 space-y-3" style="display: none;">
+            <div id="storage-info" class="py-4 text-sm text-gray-400" style="display: none;">
+                Total storage: <span id="total-storage" class="font-semibold text-gray-300">0 B</span>
+            </div>
+            <div id="recordings-list" class="flex-grow overflow-y-auto pb-4 space-y-3" style="display: none;">
                 <!-- Recordings will be populated here by JavaScript -->
             </div>
             <div id="empty-state-container" class="flex-grow flex items-center justify-center">
@@ -582,13 +585,29 @@
                 
                 recordingsListEl.innerHTML = ''; // Clear list
                 const emptyStateContainer = document.getElementById('empty-state-container');
+                const storageInfoEl = document.getElementById('storage-info');
+                const totalStorageEl = document.getElementById('total-storage');
 
                 if (recordings.length === 0) {
                     if(emptyStateContainer) emptyStateContainer.style.display = 'flex';
                     recordingsListEl.style.display = 'none';
+                    storageInfoEl.style.display = 'none';
                 } else {
                     if(emptyStateContainer) emptyStateContainer.style.display = 'none';
                     recordingsListEl.style.display = 'block';
+                    
+                    // Calculate total storage size
+                    let totalSize = 0;
+                    recordings.forEach(rec => {
+                        if (rec.blob) {
+                            totalSize += rec.blob.size;
+                        }
+                    });
+                    
+                    // Display total storage
+                    totalStorageEl.textContent = formatFileSize(totalSize);
+                    storageInfoEl.style.display = 'block';
+                    
                     recordings.reverse().forEach(rec => {
                         // Duration is now simply endTime since startTime is 0 for trimmed audio
                         const duration = rec.endTime;
