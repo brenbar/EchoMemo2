@@ -87,7 +87,13 @@
         <div id="view-list" class="view flex-col h-full w-full p-4 active">
             <header class="flex items-center justify-between pb-4 border-b border-gray-700">
                 <h1 class="text-2xl font-bold text-gray-100">EchoMemo</h1>
-                <button id="install-button" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Install App</button>
+                <div class="flex items-center gap-2">
+                    <button id="open-playlist-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15V6"></path><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"></path><path d="M12 12H3"></path><path d="M16 6H3"></path><path d="M12 18H3"></path></svg>
+                        Playlist
+                    </button>
+                    <button id="install-button" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Install App</button>
+                </div>
             </header>
             <div id="storage-info" class="py-4 text-sm text-gray-400" style="display: none;">
                 Total storage: <span id="total-storage" class="font-semibold text-gray-300">0 B</span>
@@ -156,6 +162,73 @@
                 </button>
                 <button id="save-trim-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">Save</button>
             </footer>
+        </div>
+
+        <!-- ===== Playlist View ===== -->
+        <div id="view-playlist" class="view flex-col h-full w-full p-4">
+            <header class="flex items-center justify-between pb-4 border-b border-gray-700">
+                <button id="back-from-playlist-btn" class="p-2 rounded-full hover:bg-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </button>
+                <h2 class="text-xl font-semibold text-center flex-grow">Create Playlist</h2>
+                <div class="w-10"></div>
+            </header>
+            
+            <div class="py-4 flex items-center justify-between gap-3">
+                <button id="select-all-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">Select All</button>
+                <div class="flex items-center gap-3">
+                    <label class="text-sm text-gray-300">Default Repeats:</label>
+                    <input type="number" id="default-repeats-input" class="bg-gray-800 text-white rounded-md px-3 py-2 w-20 border border-gray-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none" value="3" min="1" max="99">
+                </div>
+            </div>
+            
+            <div id="playlist-items-container" class="flex-grow overflow-y-auto pb-4 space-y-2">
+                <!-- Playlist items will be populated here -->
+            </div>
+            
+            <div id="playlist-empty-state" class="flex-grow flex items-center justify-center">
+                <p class="text-gray-400 text-center">No memos available. Record some memos first!</p>
+            </div>
+            
+            <footer class="pt-4">
+                <button id="start-playlist-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-gray-700 disabled:cursor-not-allowed" disabled>Start Playlist</button>
+            </footer>
+        </div>
+
+        <!-- ===== Playlist Playback View ===== -->
+        <div id="view-playlist-playback" class="view flex-col h-full w-full p-4">
+            <header class="flex items-center pb-4 flex-shrink-0">
+                <button id="stop-playlist-btn" class="p-2 rounded-full hover:bg-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                </button>
+                <h2 class="text-xl font-semibold text-center flex-grow px-4">Playlist</h2>
+                <div class="w-10"></div>
+            </header>
+            
+            <div class="flex-grow flex flex-col items-center justify-center text-center">
+                <div class="bg-gray-800 p-8 rounded-full mb-8">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-16 h-16 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="10 8 16 12 10 16 10 8"></polyline></svg>
+                </div>
+                
+                <h3 id="playlist-current-title" class="text-2xl font-semibold mb-2 px-4">Memo Title</h3>
+                <p id="playlist-progress-text" class="text-gray-400 mb-6">Entry 1 of 5 • Repeat 1 of 3</p>
+                
+                <div class="w-full max-w-sm">
+                    <div class="flex justify-between text-xs text-gray-400 font-mono mb-2">
+                        <span id="playlist-current-time">0:00</span>
+                        <span id="playlist-total-time">0:00</span>
+                    </div>
+                    <input type="range" id="playlist-seek-bar" class="w-full" value="0" step="0.1">
+                </div>
+            </div>
+            
+            <footer class="pt-4 flex justify-center">
+                <button id="playlist-play-pause-btn" class="w-16 h-16 bg-indigo-600 rounded-full flex items-center justify-center text-white transition-transform duration-200 active:scale-90">
+                    <!-- Play/Pause icon will be set by JS -->
+                </button>
+            </footer>
+            
+            <audio id="playlist-audio-player"></audio>
         </div>
 
         <!-- ===== Playback View ===== -->
@@ -254,6 +327,8 @@
                 record: document.getElementById('view-record'),
                 trim: document.getElementById('view-trim'),
                 play: document.getElementById('view-play'),
+                playlist: document.getElementById('view-playlist'),
+                playlistPlayback: document.getElementById('view-playlist-playback'),
             };
             const recordNewBtn = document.getElementById('record-new-btn');
             const stopRecordingBtn = document.getElementById('stop-recording-btn');
@@ -288,6 +363,31 @@
             const recordViewTitle = document.getElementById('record-view-title');
             const recordingDisplay = document.getElementById('recording-display');
             const scriptTextarea = document.getElementById('script-textarea');
+            
+            // Playlist View elements
+            const openPlaylistBtn = document.getElementById('open-playlist-btn');
+            const backFromPlaylistBtn = document.getElementById('back-from-playlist-btn');
+            const defaultRepeatsInput = document.getElementById('default-repeats-input');
+            const playlistItemsContainer = document.getElementById('playlist-items-container');
+            const playlistEmptyState = document.getElementById('playlist-empty-state');
+            const selectAllBtn = document.getElementById('select-all-btn');
+            const startPlaylistBtn = document.getElementById('start-playlist-btn');
+            
+            // Playlist Playback View elements
+            const stopPlaylistBtn = document.getElementById('stop-playlist-btn');
+            const playlistCurrentTitle = document.getElementById('playlist-current-title');
+            const playlistProgressText = document.getElementById('playlist-progress-text');
+            const playlistCurrentTime = document.getElementById('playlist-current-time');
+            const playlistTotalTime = document.getElementById('playlist-total-time');
+            const playlistSeekBar = document.getElementById('playlist-seek-bar');
+            const playlistPlayPauseBtn = document.getElementById('playlist-play-pause-btn');
+            const playlistAudioPlayer = document.getElementById('playlist-audio-player');
+            
+            // Playlist state
+            let playlistItems = []; // Array of {id, name, repeats, blob}
+            let currentPlaylistIndex = 0;
+            let currentRepeatCount = 0;
+            let isPlaylistPlaying = false;
 
 
             // --- View Management ---
@@ -913,6 +1013,222 @@
                 currentPlayingAudio = null;
                 currentPlayingInfo = null;
                 showView('list');
+            });
+            
+            // --- Playlist View Functions ---
+            async function renderPlaylistView() {
+                const transaction = db.transaction(STORE_NAME, 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const recordings = await new Promise(resolve => store.getAll().onsuccess = e => resolve(e.target.result));
+                
+                playlistItemsContainer.innerHTML = '';
+                
+                if (recordings.length === 0) {
+                    playlistEmptyState.style.display = 'flex';
+                    playlistItemsContainer.style.display = 'none';
+                    startPlaylistBtn.disabled = true;
+                } else {
+                    playlistEmptyState.style.display = 'none';
+                    playlistItemsContainer.style.display = 'block';
+                    
+                    const defaultRepeats = parseInt(defaultRepeatsInput.value) || 3;
+                    
+                    recordings.forEach(rec => {
+                        const duration = rec.endTime;
+                        const item = document.createElement('div');
+                        item.className = 'bg-gray-800 p-3 rounded-lg flex items-center gap-3 cursor-pointer hover:bg-gray-700 transition-colors';
+                        item.innerHTML = `
+                            <input type="checkbox" class="playlist-checkbox w-5 h-5 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-2 focus:ring-indigo-500 pointer-events-none" data-id="${rec.id}">
+                            <div class="flex-grow pointer-events-none">
+                                <h3 class="font-semibold">${rec.name}</h3>
+                                <p class="text-sm text-gray-400">Duration: ${formatTime(duration)}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label class="text-sm text-gray-400 pointer-events-none">×</label>
+                                <input type="number" class="playlist-repeats w-16 bg-gray-700 text-white rounded-md px-2 py-1 text-center border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none pointer-events-auto" value="${defaultRepeats}" min="1" max="99" data-id="${rec.id}">
+                            </div>
+                        `;
+                        
+                        // Make the entire row clickable to toggle checkbox
+                        item.addEventListener('click', (e) => {
+                            // Don't toggle if clicking on the number input
+                            if (e.target.classList.contains('playlist-repeats')) {
+                                return;
+                            }
+                            const checkbox = item.querySelector('.playlist-checkbox');
+                            checkbox.checked = !checkbox.checked;
+                            updateStartPlaylistButton();
+                        });
+                        
+                        playlistItemsContainer.appendChild(item);
+                    });
+                    
+                    updateStartPlaylistButton();
+                }
+            }
+            
+            function updateStartPlaylistButton() {
+                const checkedBoxes = playlistItemsContainer.querySelectorAll('.playlist-checkbox:checked');
+                startPlaylistBtn.disabled = checkedBoxes.length === 0;
+            }
+            
+            async function startPlaylist() {
+                // Gather selected items
+                const checkedBoxes = playlistItemsContainer.querySelectorAll('.playlist-checkbox:checked');
+                if (checkedBoxes.length === 0) return;
+                
+                playlistItems = [];
+                const transaction = db.transaction(STORE_NAME, 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                
+                for (const checkbox of checkedBoxes) {
+                    const id = parseInt(checkbox.dataset.id);
+                    const repeatsInput = playlistItemsContainer.querySelector(`.playlist-repeats[data-id="${id}"]`);
+                    const repeats = parseInt(repeatsInput.value) || 1;
+                    
+                    const recording = await new Promise(resolve => store.get(id).onsuccess = e => resolve(e.target.result));
+                    if (recording) {
+                        playlistItems.push({
+                            id: recording.id,
+                            name: recording.name,
+                            repeats: repeats,
+                            blob: recording.blob,
+                            duration: recording.endTime
+                        });
+                    }
+                }
+                
+                if (playlistItems.length === 0) return;
+                
+                // Start playback
+                currentPlaylistIndex = 0;
+                currentRepeatCount = 0;
+                showView('playlistPlayback');
+                playNextInPlaylist();
+            }
+            
+            function playNextInPlaylist() {
+                if (playlistItems.length === 0) return;
+                
+                const currentItem = playlistItems[currentPlaylistIndex];
+                
+                // Update UI
+                playlistCurrentTitle.textContent = currentItem.name;
+                playlistProgressText.textContent = `Entry ${currentPlaylistIndex + 1} of ${playlistItems.length} • Repeat ${currentRepeatCount + 1} of ${currentItem.repeats}`;
+                
+                // Set up audio
+                const audioUrl = URL.createObjectURL(currentItem.blob);
+                playlistAudioPlayer.src = audioUrl;
+                
+                playlistAudioPlayer.onloadedmetadata = () => {
+                    playlistSeekBar.max = playlistAudioPlayer.duration;
+                    playlistSeekBar.min = 0;
+                    playlistTotalTime.textContent = formatTime(playlistAudioPlayer.duration);
+                    playlistAudioPlayer.play();
+                    isPlaylistPlaying = true;
+                    updatePlaylistPlayPauseIcon(true);
+                };
+                
+                playlistAudioPlayer.onended = () => {
+                    URL.revokeObjectURL(audioUrl);
+                    currentRepeatCount++;
+                    
+                    // Check if we need to repeat this entry
+                    if (currentRepeatCount < currentItem.repeats) {
+                        playNextInPlaylist();
+                    } else {
+                        // Move to next entry
+                        currentRepeatCount = 0;
+                        currentPlaylistIndex++;
+                        
+                        // Loop back to start if at the end
+                        if (currentPlaylistIndex >= playlistItems.length) {
+                            currentPlaylistIndex = 0;
+                        }
+                        
+                        playNextInPlaylist();
+                    }
+                };
+            }
+            
+            function updatePlaylistPlayPauseIcon(isPlaying) {
+                playlistPlayPauseBtn.innerHTML = isPlaying
+                    ? `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`
+                    : `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>`;
+            }
+            
+            function updatePlaylistSeekBar() {
+                if (!playlistAudioPlayer.paused) {
+                    playlistSeekBar.value = playlistAudioPlayer.currentTime;
+                    playlistCurrentTime.textContent = formatTime(playlistAudioPlayer.currentTime);
+                }
+            }
+            
+            // --- Playlist Event Listeners ---
+            openPlaylistBtn.addEventListener('click', async () => {
+                await renderPlaylistView();
+                showView('playlist');
+            });
+            
+            backFromPlaylistBtn.addEventListener('click', () => {
+                showView('list');
+            });
+            
+            defaultRepeatsInput.addEventListener('input', () => {
+                // Update all repeat inputs when default changes
+                const repeatsInputs = playlistItemsContainer.querySelectorAll('.playlist-repeats');
+                const newValue = defaultRepeatsInput.value;
+                repeatsInputs.forEach(input => {
+                    input.value = newValue;
+                });
+            });
+            
+            selectAllBtn.addEventListener('click', () => {
+                const checkboxes = playlistItemsContainer.querySelectorAll('.playlist-checkbox');
+                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                
+                checkboxes.forEach(cb => {
+                    cb.checked = !allChecked;
+                });
+                
+                selectAllBtn.textContent = allChecked ? 'Select All' : 'Deselect All';
+                updateStartPlaylistButton();
+            });
+            
+            startPlaylistBtn.addEventListener('click', startPlaylist);
+            
+            stopPlaylistBtn.addEventListener('click', () => {
+                playlistAudioPlayer.pause();
+                playlistAudioPlayer.src = '';
+                isPlaylistPlaying = false;
+                playlistItems = [];
+                currentPlaylistIndex = 0;
+                currentRepeatCount = 0;
+                showView('list');
+            });
+            
+            playlistPlayPauseBtn.addEventListener('click', () => {
+                if (playlistAudioPlayer.paused) {
+                    playlistAudioPlayer.play();
+                    isPlaylistPlaying = true;
+                } else {
+                    playlistAudioPlayer.pause();
+                    isPlaylistPlaying = false;
+                }
+            });
+            
+            playlistAudioPlayer.addEventListener('play', () => {
+                updatePlaylistPlayPauseIcon(true);
+            });
+            
+            playlistAudioPlayer.addEventListener('pause', () => {
+                updatePlaylistPlayPauseIcon(false);
+            });
+            
+            playlistAudioPlayer.addEventListener('timeupdate', updatePlaylistSeekBar);
+            
+            playlistSeekBar.addEventListener('input', () => {
+                playlistAudioPlayer.currentTime = playlistSeekBar.value;
             });
 
             // --- PWA Installation ---
