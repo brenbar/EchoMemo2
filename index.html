@@ -88,15 +88,17 @@
             <header class="flex items-center justify-between pb-4 border-b border-gray-700">
                 <h1 class="text-2xl font-bold text-gray-100">EchoMemo</h1>
                 <div class="flex items-center gap-2">
-                    <button id="open-playlist-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15V6"></path><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"></path><path d="M12 12H3"></path><path d="M16 6H3"></path><path d="M12 18H3"></path></svg>
-                        Playlist
-                    </button>
                     <button id="install-button" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Install App</button>
                 </div>
             </header>
-            <div id="storage-info" class="py-4 text-sm text-gray-400" style="display: none;">
-                Total storage: <span id="total-storage" class="font-semibold text-gray-300">0 B</span>
+            <div id="storage-info" class="py-4 text-sm text-gray-400 flex items-center justify-between" style="display: none;">
+                <div>
+                    Total storage: <span id="total-storage" class="font-semibold text-gray-300">0 B</span>
+                </div>
+                <button id="open-playlist-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-3 rounded-lg transition-colors flex items-center gap-2 text-sm" style="display: none;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15V6"></path><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"></path><path d="M12 12H3"></path><path d="M16 6H3"></path><path d="M12 18H3"></path></svg>
+                    Playlist
+                </button>
             </div>
             <div id="recordings-list" class="flex-grow overflow-y-auto pb-4 space-y-3" style="display: none;">
                 <!-- Recordings will be populated here by JavaScript -->
@@ -687,11 +689,13 @@
                 const emptyStateContainer = document.getElementById('empty-state-container');
                 const storageInfoEl = document.getElementById('storage-info');
                 const totalStorageEl = document.getElementById('total-storage');
+                const playlistBtn = document.getElementById('open-playlist-btn');
 
                 if (recordings.length === 0) {
                     if(emptyStateContainer) emptyStateContainer.style.display = 'flex';
                     recordingsListEl.style.display = 'none';
                     storageInfoEl.style.display = 'none';
+                    if(playlistBtn) playlistBtn.style.display = 'none';
                 } else {
                     if(emptyStateContainer) emptyStateContainer.style.display = 'none';
                     recordingsListEl.style.display = 'block';
@@ -706,7 +710,12 @@
                     
                     // Display total storage
                     totalStorageEl.textContent = formatFileSize(totalSize);
-                    storageInfoEl.style.display = 'block';
+                    storageInfoEl.style.display = 'flex';
+                    
+                    // Show playlist button only if there are more than 2 recordings
+                    if(playlistBtn) {
+                        playlistBtn.style.display = recordings.length > 2 ? 'flex' : 'none';
+                    }
                     
                     recordings.reverse().forEach(rec => {
                         // Duration is now simply endTime since startTime is 0 for trimmed audio
