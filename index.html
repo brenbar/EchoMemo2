@@ -1127,6 +1127,7 @@
                     playlistAudioPlayer.play();
                     isPlaylistPlaying = true;
                     updatePlaylistPlayPauseIcon(true);
+                    setupPlaylistMediaSession();
                 };
                 
                 playlistAudioPlayer.onended = () => {
@@ -1149,6 +1150,55 @@
                         playNextInPlaylist();
                     }
                 };
+            }
+            
+            // --- Media Session API for playlist lock screen controls ---
+            function setupPlaylistMediaSession() {
+                if ('mediaSession' in navigator && playlistItems.length > 0) {
+                    const currentItem = playlistItems[currentPlaylistIndex];
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: currentItem.name,
+                        artist: 'EchoMemo Playlist',
+                        album: `Entry ${currentPlaylistIndex + 1} of ${playlistItems.length}`,
+                    });
+
+                    navigator.mediaSession.setActionHandler('play', () => {
+                        playlistAudioPlayer.play();
+                        isPlaylistPlaying = true;
+                    });
+                    navigator.mediaSession.setActionHandler('pause', () => {
+                        playlistAudioPlayer.pause();
+                        isPlaylistPlaying = false;
+                    });
+                    navigator.mediaSession.setActionHandler('seekto', (details) => {
+                        if (details.seekTime !== undefined) {
+                            playlistAudioPlayer.currentTime = details.seekTime;
+                        }
+                    });
+                    
+                    // Optional: Add next/previous track handlers
+                    navigator.mediaSession.setActionHandler('nexttrack', () => {
+                        // Skip to next entry
+                        currentRepeatCount = 0;
+                        currentPlaylistIndex++;
+                        if (currentPlaylistIndex >= playlistItems.length) {
+                            currentPlaylistIndex = 0;
+                        }
+                        playlistAudioPlayer.pause();
+                        playNextInPlaylist();
+                    });
+                    
+                    navigator.mediaSession.setActionHandler('previoustrack', () => {
+                        // Go to previous entry
+                        currentRepeatCount = 0;
+                        currentPlaylistIndex--;
+                        if (currentPlaylistIndex < 0) {
+                            currentPlaylistIndex = playlistItems.length - 1;
+                        }
+                        playlistAudioPlayer.pause();
+                        playNextInPlaylist();
+                    });
+                }
             }
             
             function updatePlaylistPlayPauseIcon(isPlaying) {
