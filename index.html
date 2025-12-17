@@ -712,9 +712,9 @@
                     totalStorageEl.textContent = formatFileSize(totalSize);
                     storageInfoEl.style.display = 'flex';
                     
-                    // Show playlist button only if there are more than 2 recordings
+                    // Show playlist button only if there are more than 1 recordings
                     if(playlistBtn) {
-                        playlistBtn.style.display = recordings.length > 2 ? 'flex' : 'none';
+                        playlistBtn.style.display = recordings.length > 1 ? 'flex' : 'none';
                     }
                     
                     recordings.reverse().forEach(rec => {
