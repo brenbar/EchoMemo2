@@ -311,6 +311,7 @@
             let mediaRecorder;
             let recordedChunks = [];
             let recordingTimerInterval;
+            let recordingDataInterval; // periodic requestData() to avoid Safari truncation
             let recordingStartTime;
             
             let tempAudioBlob = null;
@@ -463,12 +464,21 @@
                         tempAudioBlob = new Blob(recordedChunks, { type: supportedMimeType });
                         stream.getTracks().forEach(track => track.stop());
                         clearInterval(recordingTimerInterval);
+                        clearInterval(recordingDataInterval);
+                        recordingDataInterval = null;
                         initTrimView();
                     };
                     
-                    // Request data every 1 second to ensure all audio is captured
-                    // This is especially important for Safari on iOS which has bugs with long recordings
-                    mediaRecorder.start(1000);
+                    // Start recording without a timeslice; Safari/WebKit can truncate longer
+                    // recordings when a timeslice is used. Instead we manually flush data
+                    // once per second via requestData().
+                    mediaRecorder.start();
+                    recordingDataInterval = setInterval(() => {
+                        if (mediaRecorder && mediaRecorder.state === 'recording') {
+                            mediaRecorder.requestData();
+                        }
+                    }, 1000);
+
                     recordingStartTime = Date.now();
                     recordingTimerInterval = setInterval(updateRecordingTimer, 100);
 
