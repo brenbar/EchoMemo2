@@ -453,7 +453,11 @@
                     }
 
                     mediaRecorder = new MediaRecorder(stream, { mimeType: supportedMimeType });
-                    mediaRecorder.ondataavailable = event => recordedChunks.push(event.data);
+                    mediaRecorder.ondataavailable = event => {
+                        if (event.data && event.data.size > 0) {
+                            recordedChunks.push(event.data);
+                        }
+                    };
                     
                     mediaRecorder.onstop = () => {
                         tempAudioBlob = new Blob(recordedChunks, { type: supportedMimeType });
@@ -462,7 +466,9 @@
                         initTrimView();
                     };
                     
-                    mediaRecorder.start();
+                    // Request data every 1 second to ensure all audio is captured
+                    // This is especially important for Safari on iOS which has bugs with long recordings
+                    mediaRecorder.start(1000);
                     recordingStartTime = Date.now();
                     recordingTimerInterval = setInterval(updateRecordingTimer, 100);
 
