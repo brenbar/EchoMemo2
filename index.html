@@ -385,6 +385,8 @@
             const playlistSeekBar = document.getElementById('playlist-seek-bar');
             const playlistPlayPauseBtn = document.getElementById('playlist-play-pause-btn');
             const playlistAudioPlayer = document.getElementById('playlist-audio-player');
+            const playlistBufferAudio = new Audio();
+            playlistBufferAudio.preload = 'auto';
             
             // Playlist state
             let playlistItems = []; // Array of {id, name, repeats, blob}
@@ -392,16 +394,47 @@
             let currentRepeatCount = 0;
             let isPlaylistPlaying = false;
             let currentPlaylistObjectUrl = null;
+            let nextBufferObjectUrl = null;
+            let nextBufferPrepared = false;
+            let nextBufferTargetIndex = null;
+            let nextBufferTargetRepeatCount = 0;
+            let preloadingNext = false;
+            let keepAliveHandle = null;
+
+            const BUFFER_PRELOAD_SECONDS = 10;
+            const SWAP_THRESHOLD_SECONDS = 0.5;
 
             async function safePlayPlaylistAudio() {
                 try {
                     await playlistAudioPlayer.play();
                     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
                     isPlaylistPlaying = true;
+                    startAudioKeepAlive();
                 } catch (err) {
                     // Autoplay can be blocked when backgrounded; leave paused and log for debugging.
                     console.warn('Playlist play blocked or failed:', err);
                     isPlaylistPlaying = false;
+                }
+            }
+
+            function startAudioKeepAlive() {
+                if (keepAliveHandle) return;
+                const tick = () => {
+                    if (!playlistAudioPlayer.paused) {
+                        // Touching currentTime is enough to keep JS alive on some iOS versions
+                        void playlistAudioPlayer.currentTime;
+                        keepAliveHandle = requestAnimationFrame(tick);
+                    } else {
+                        keepAliveHandle = null;
+                    }
+                };
+                keepAliveHandle = requestAnimationFrame(tick);
+            }
+
+            function stopAudioKeepAlive() {
+                if (keepAliveHandle) {
+                    cancelAnimationFrame(keepAliveHandle);
+                    keepAliveHandle = null;
                 }
             }
 
@@ -1151,8 +1184,118 @@
                 playlistProgressText.textContent = `Entry ${currentPlaylistIndex + 1} of ${playlistItems.length} • Repeat ${currentRepeatCount + 1} of ${currentItem.repeats}`;
             }
 
+            function clearNextBuffer() {
+                if (nextBufferObjectUrl) URL.revokeObjectURL(nextBufferObjectUrl);
+                nextBufferObjectUrl = null;
+                nextBufferPrepared = false;
+                nextBufferTargetIndex = null;
+                nextBufferTargetRepeatCount = 0;
+                preloadingNext = false;
+                playlistBufferAudio.src = '';
+            }
+
+            function computeNextTarget() {
+                if (playlistItems.length === 0) return null;
+                const currentItem = playlistItems[currentPlaylistIndex];
+                const willRepeatSame = currentRepeatCount + 1 < currentItem.repeats;
+                if (willRepeatSame) {
+                    return { index: currentPlaylistIndex, repeatCount: currentRepeatCount + 1 };
+                }
+                const nextIndex = (currentPlaylistIndex + 1) % playlistItems.length;
+                return { index: nextIndex, repeatCount: 0 };
+            }
+
+            function prepareNextTrackBuffer() {
+                if (preloadingNext || nextBufferPrepared) return;
+                const target = computeNextTarget();
+                if (!target) return;
+                const targetItem = playlistItems[target.index];
+                if (!targetItem || !targetItem.blob) return;
+
+                preloadingNext = true;
+                if (nextBufferObjectUrl) URL.revokeObjectURL(nextBufferObjectUrl);
+                nextBufferObjectUrl = URL.createObjectURL(targetItem.blob);
+                nextBufferTargetIndex = target.index;
+                nextBufferTargetRepeatCount = target.repeatCount;
+
+                const onReady = () => {
+                    nextBufferPrepared = true;
+                    preloadingNext = false;
+                    playlistBufferAudio.removeEventListener('canplaythrough', onReady);
+                };
+                const onError = () => {
+                    preloadingNext = false;
+                    nextBufferPrepared = false;
+                    playlistBufferAudio.removeEventListener('error', onError);
+                };
+
+                playlistBufferAudio.addEventListener('canplaythrough', onReady, { once: true });
+                playlistBufferAudio.addEventListener('error', onError, { once: true });
+                playlistBufferAudio.src = nextBufferObjectUrl;
+                playlistBufferAudio.load();
+            }
+
+            function setPlaylistMediaMetadataForIndex(index) {
+                if (!('mediaSession' in navigator)) return;
+                const item = playlistItems[index];
+                if (!item) return;
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: item.name,
+                    artist: 'EchoMemo Playlist',
+                    album: `Entry ${index + 1} of ${playlistItems.length}`,
+                });
+            }
+
+            function swapToBufferedTrack() {
+                if (!nextBufferPrepared || nextBufferTargetIndex === null) return;
+
+                const oldUrl = currentPlaylistObjectUrl;
+                currentPlaylistIndex = nextBufferTargetIndex;
+                currentRepeatCount = nextBufferTargetRepeatCount;
+
+                // Update UI & metadata before swap to keep lock screen responsive
+                updatePlaylistUI();
+                setPlaylistMediaMetadataForIndex(currentPlaylistIndex);
+
+                currentPlaylistObjectUrl = nextBufferObjectUrl;
+                playlistAudioPlayer.src = currentPlaylistObjectUrl;
+                playlistAudioPlayer.currentTime = 0;
+
+                // Clear buffer state before playing next
+                nextBufferObjectUrl = null;
+                nextBufferPrepared = false;
+                preloadingNext = false;
+                nextBufferTargetIndex = null;
+                nextBufferTargetRepeatCount = 0;
+                playlistBufferAudio.src = '';
+
+                safePlayPlaylistAudio().then(() => {
+                    updatePlaylistPlayPauseIcon(!playlistAudioPlayer.paused);
+                    updatePlaylistPositionState();
+                });
+
+                if (oldUrl && oldUrl !== currentPlaylistObjectUrl) URL.revokeObjectURL(oldUrl);
+            }
+
+            function maybePreloadNextTrack() {
+                if (!playlistAudioPlayer.duration || Number.isNaN(playlistAudioPlayer.duration)) return;
+                const remaining = playlistAudioPlayer.duration - playlistAudioPlayer.currentTime;
+                if (remaining <= BUFFER_PRELOAD_SECONDS) {
+                    prepareNextTrackBuffer();
+                }
+            }
+
+            function maybeSwapToBufferedTrack() {
+                if (!playlistAudioPlayer.duration || Number.isNaN(playlistAudioPlayer.duration)) return;
+                const remaining = playlistAudioPlayer.duration - playlistAudioPlayer.currentTime;
+                if (remaining <= SWAP_THRESHOLD_SECONDS) {
+                    swapToBufferedTrack();
+                }
+            }
+
             function loadAndPlayCurrentPlaylistItem({ restartSameTrack = false } = {}) {
                 if (playlistItems.length === 0) return;
+                clearNextBuffer();
 
                 const currentItem = playlistItems[currentPlaylistIndex];
                 updatePlaylistUI();
@@ -1169,6 +1312,7 @@
                     playlistSeekBar.min = 0;
                     playlistTotalTime.textContent = formatTime(playlistAudioPlayer.duration);
                     playlistAudioPlayer.currentTime = 0;
+                    setPlaylistMediaMetadataForIndex(currentPlaylistIndex);
                     safePlayPlaylistAudio().then(() => {
                         updatePlaylistPlayPauseIcon(!playlistAudioPlayer.paused);
                         setupPlaylistMediaSession();
@@ -1186,6 +1330,7 @@
             function advancePlaylist(direction = 0) {
                 if (playlistItems.length === 0) return;
                 const currentItem = playlistItems[currentPlaylistIndex];
+                clearNextBuffer();
 
                 // direction === 0 means handle natural end / repeat logic
                 if (direction === 0) {
@@ -1205,12 +1350,7 @@
             // --- Media Session API for playlist lock screen controls ---
             function setupPlaylistMediaSession() {
                 if ('mediaSession' in navigator && playlistItems.length > 0) {
-                    const currentItem = playlistItems[currentPlaylistIndex];
-                    navigator.mediaSession.metadata = new MediaMetadata({
-                        title: currentItem.name,
-                        artist: 'EchoMemo Playlist',
-                        album: `Entry ${currentPlaylistIndex + 1} of ${playlistItems.length}`,
-                    });
+                    setPlaylistMediaMetadataForIndex(currentPlaylistIndex);
 
                     navigator.mediaSession.setActionHandler('play', () => {
                         playlistAudioPlayer.play();
@@ -1252,6 +1392,8 @@
                     playlistSeekBar.value = playlistAudioPlayer.currentTime;
                     playlistCurrentTime.textContent = formatTime(playlistAudioPlayer.currentTime);
                     updatePlaylistPositionState();
+                    maybePreloadNextTrack();
+                    maybeSwapToBufferedTrack();
                 }
             }
 
@@ -1309,6 +1451,7 @@
                 playlistItems = [];
                 currentPlaylistIndex = 0;
                 currentRepeatCount = 0;
+                clearNextBuffer();
                 if (currentPlaylistObjectUrl) {
                     URL.revokeObjectURL(currentPlaylistObjectUrl);
                     currentPlaylistObjectUrl = null;
@@ -1330,21 +1473,30 @@
                 isPlaylistPlaying = true;
                 if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
                 updatePlaylistPositionState();
+                startAudioKeepAlive();
             });
             
             playlistAudioPlayer.addEventListener('pause', () => {
                 updatePlaylistPlayPauseIcon(false);
                 isPlaylistPlaying = false;
                 if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+                stopAudioKeepAlive();
             });
             
             playlistAudioPlayer.addEventListener('timeupdate', updatePlaylistSeekBar);
-            playlistAudioPlayer.addEventListener('ended', () => advancePlaylist(0));
+            playlistAudioPlayer.addEventListener('ended', () => { stopAudioKeepAlive(); advancePlaylist(0); });
             playlistAudioPlayer.addEventListener('loadedmetadata', updatePlaylistPositionState);
             
             playlistSeekBar.addEventListener('input', () => {
                 playlistAudioPlayer.currentTime = playlistSeekBar.value;
                 updatePlaylistPositionState();
+            });
+
+            // Keep-alive fallback: keep a rAF loop running while playing to avoid iOS suspending JS
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible' && !playlistAudioPlayer.paused) {
+                    startAudioKeepAlive();
+                }
             });
 
             // --- PWA Installation ---
