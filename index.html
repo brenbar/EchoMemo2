@@ -391,6 +391,7 @@
             let currentPlaylistIndex = 0;
             let currentRepeatCount = 0;
             let isPlaylistPlaying = false;
+            let currentPlaylistObjectUrl = null;
 
 
             // --- View Management ---
@@ -1129,52 +1130,64 @@
                 currentPlaylistIndex = 0;
                 currentRepeatCount = 0;
                 showView('playlistPlayback');
-                playNextInPlaylist();
+                loadAndPlayCurrentPlaylistItem();
             }
             
-            function playNextInPlaylist() {
-                if (playlistItems.length === 0) return;
-                
+            function updatePlaylistUI() {
                 const currentItem = playlistItems[currentPlaylistIndex];
-                
-                // Update UI
                 playlistCurrentTitle.textContent = currentItem.name;
                 playlistProgressText.textContent = `Entry ${currentPlaylistIndex + 1} of ${playlistItems.length} • Repeat ${currentRepeatCount + 1} of ${currentItem.repeats}`;
-                
-                // Set up audio
-                const audioUrl = URL.createObjectURL(currentItem.blob);
-                playlistAudioPlayer.src = audioUrl;
-                
-                playlistAudioPlayer.onloadedmetadata = () => {
+            }
+
+            function loadAndPlayCurrentPlaylistItem({ restartSameTrack = false } = {}) {
+                if (playlistItems.length === 0) return;
+
+                const currentItem = playlistItems[currentPlaylistIndex];
+                updatePlaylistUI();
+
+                // Reuse the same object URL when repeating to avoid extra loads while backgrounded
+                if (!restartSameTrack) {
+                    if (currentPlaylistObjectUrl) URL.revokeObjectURL(currentPlaylistObjectUrl);
+                    currentPlaylistObjectUrl = URL.createObjectURL(currentItem.blob);
+                    playlistAudioPlayer.src = currentPlaylistObjectUrl;
+                }
+
+                const startPlayback = () => {
                     playlistSeekBar.max = playlistAudioPlayer.duration;
                     playlistSeekBar.min = 0;
                     playlistTotalTime.textContent = formatTime(playlistAudioPlayer.duration);
+                    playlistAudioPlayer.currentTime = 0;
                     playlistAudioPlayer.play();
                     isPlaylistPlaying = true;
                     updatePlaylistPlayPauseIcon(true);
                     setupPlaylistMediaSession();
+                    updatePlaylistPositionState();
                 };
-                
-                playlistAudioPlayer.onended = () => {
-                    URL.revokeObjectURL(audioUrl);
+
+                if (playlistAudioPlayer.readyState >= 1 && restartSameTrack) {
+                    startPlayback();
+                } else {
+                    playlistAudioPlayer.onloadedmetadata = startPlayback;
+                }
+            }
+
+            function advancePlaylist(direction = 0) {
+                if (playlistItems.length === 0) return;
+                const currentItem = playlistItems[currentPlaylistIndex];
+
+                // direction === 0 means handle natural end / repeat logic
+                if (direction === 0) {
                     currentRepeatCount++;
-                    
-                    // Check if we need to repeat this entry
                     if (currentRepeatCount < currentItem.repeats) {
-                        playNextInPlaylist();
-                    } else {
-                        // Move to next entry
-                        currentRepeatCount = 0;
-                        currentPlaylistIndex++;
-                        
-                        // Loop back to start if at the end
-                        if (currentPlaylistIndex >= playlistItems.length) {
-                            currentPlaylistIndex = 0;
-                        }
-                        
-                        playNextInPlaylist();
+                        loadAndPlayCurrentPlaylistItem({ restartSameTrack: true });
+                        return;
                     }
-                };
+                    direction = 1; // move forward after completing repeats
+                }
+
+                currentRepeatCount = 0;
+                currentPlaylistIndex = (currentPlaylistIndex + direction + playlistItems.length) % playlistItems.length;
+                loadAndPlayCurrentPlaylistItem();
             }
             
             // --- Media Session API for playlist lock screen controls ---
@@ -1203,26 +1216,16 @@
                     
                     // Optional: Add next/previous track handlers
                     navigator.mediaSession.setActionHandler('nexttrack', () => {
-                        // Skip to next entry
-                        currentRepeatCount = 0;
-                        currentPlaylistIndex++;
-                        if (currentPlaylistIndex >= playlistItems.length) {
-                            currentPlaylistIndex = 0;
-                        }
                         playlistAudioPlayer.pause();
-                        playNextInPlaylist();
+                        advancePlaylist(1);
                     });
                     
                     navigator.mediaSession.setActionHandler('previoustrack', () => {
-                        // Go to previous entry
-                        currentRepeatCount = 0;
-                        currentPlaylistIndex--;
-                        if (currentPlaylistIndex < 0) {
-                            currentPlaylistIndex = playlistItems.length - 1;
-                        }
                         playlistAudioPlayer.pause();
-                        playNextInPlaylist();
+                        advancePlaylist(-1);
                     });
+
+                    updatePlaylistPositionState();
                 }
             }
             
@@ -1236,6 +1239,21 @@
                 if (!playlistAudioPlayer.paused) {
                     playlistSeekBar.value = playlistAudioPlayer.currentTime;
                     playlistCurrentTime.textContent = formatTime(playlistAudioPlayer.currentTime);
+                    updatePlaylistPositionState();
+                }
+            }
+
+            function updatePlaylistPositionState() {
+                if (!('mediaSession' in navigator)) return;
+                if (!playlistAudioPlayer.duration || Number.isNaN(playlistAudioPlayer.duration)) return;
+                try {
+                    navigator.mediaSession.setPositionState({
+                        duration: playlistAudioPlayer.duration,
+                        playbackRate: playlistAudioPlayer.playbackRate || 1,
+                        position: playlistAudioPlayer.currentTime || 0,
+                    });
+                } catch (err) {
+                    // Some platforms (iOS) may throw if called too early; ignore silently.
                 }
             }
             
@@ -1279,6 +1297,10 @@
                 playlistItems = [];
                 currentPlaylistIndex = 0;
                 currentRepeatCount = 0;
+                if (currentPlaylistObjectUrl) {
+                    URL.revokeObjectURL(currentPlaylistObjectUrl);
+                    currentPlaylistObjectUrl = null;
+                }
                 showView('list');
             });
             
@@ -1294,16 +1316,24 @@
             
             playlistAudioPlayer.addEventListener('play', () => {
                 updatePlaylistPlayPauseIcon(true);
+                isPlaylistPlaying = true;
+                if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+                updatePlaylistPositionState();
             });
             
             playlistAudioPlayer.addEventListener('pause', () => {
                 updatePlaylistPlayPauseIcon(false);
+                isPlaylistPlaying = false;
+                if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
             });
             
             playlistAudioPlayer.addEventListener('timeupdate', updatePlaylistSeekBar);
+            playlistAudioPlayer.addEventListener('ended', () => advancePlaylist(0));
+            playlistAudioPlayer.addEventListener('loadedmetadata', updatePlaylistPositionState);
             
             playlistSeekBar.addEventListener('input', () => {
                 playlistAudioPlayer.currentTime = playlistSeekBar.value;
+                updatePlaylistPositionState();
             });
 
             // --- PWA Installation ---
