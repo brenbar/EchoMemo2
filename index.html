@@ -393,6 +393,18 @@
             let isPlaylistPlaying = false;
             let currentPlaylistObjectUrl = null;
 
+            async function safePlayPlaylistAudio() {
+                try {
+                    await playlistAudioPlayer.play();
+                    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+                    isPlaylistPlaying = true;
+                } catch (err) {
+                    // Autoplay can be blocked when backgrounded; leave paused and log for debugging.
+                    console.warn('Playlist play blocked or failed:', err);
+                    isPlaylistPlaying = false;
+                }
+            }
+
 
             // --- View Management ---
             const showView = (viewId) => {
@@ -1157,11 +1169,11 @@
                     playlistSeekBar.min = 0;
                     playlistTotalTime.textContent = formatTime(playlistAudioPlayer.duration);
                     playlistAudioPlayer.currentTime = 0;
-                    playlistAudioPlayer.play();
-                    isPlaylistPlaying = true;
-                    updatePlaylistPlayPauseIcon(true);
-                    setupPlaylistMediaSession();
-                    updatePlaylistPositionState();
+                    safePlayPlaylistAudio().then(() => {
+                        updatePlaylistPlayPauseIcon(!playlistAudioPlayer.paused);
+                        setupPlaylistMediaSession();
+                        updatePlaylistPositionState();
+                    });
                 };
 
                 if (playlistAudioPlayer.readyState >= 1 && restartSameTrack) {
@@ -1306,8 +1318,7 @@
             
             playlistPlayPauseBtn.addEventListener('click', () => {
                 if (playlistAudioPlayer.paused) {
-                    playlistAudioPlayer.play();
-                    isPlaylistPlaying = true;
+                    safePlayPlaylistAudio();
                 } else {
                     playlistAudioPlayer.pause();
                     isPlaylistPlaying = false;
