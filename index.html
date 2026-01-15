@@ -347,7 +347,6 @@
             const memoNameInput = document.getElementById('memo-name-input');
             const confirmSaveBtn = document.getElementById('confirm-save-btn');
             const cancelSaveBtn = document.getElementById('cancel-save-btn');
-            const confirmSaveDefaultHtml = confirmSaveBtn.innerHTML;
             const deleteModal = document.getElementById('delete-modal');
             const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
             const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
@@ -471,24 +470,6 @@
 
             function getSupportedMimeType() {
                 return PREFERRED_MIME_TYPES.find(type => MediaRecorder.isTypeSupported(type)) || null;
-            }
-
-            function setSaveButtonState(isSaving) {
-                if (isSaving) {
-                    confirmSaveBtn.disabled = true;
-                    confirmSaveBtn.classList.add('opacity-70', 'cursor-not-allowed');
-                    confirmSaveBtn.innerHTML = `
-                        <svg class="animate-spin h-5 w-5 mr-2 inline-block align-middle" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                        </svg>
-                        <span class="align-middle">Saving...</span>
-                    `;
-                } else {
-                    confirmSaveBtn.disabled = false;
-                    confirmSaveBtn.classList.remove('opacity-70', 'cursor-not-allowed');
-                    confirmSaveBtn.innerHTML = confirmSaveDefaultHtml;
-                }
             }
 
             // --- Audio Recording ---
@@ -1086,7 +1067,6 @@
             cancelSaveBtn.addEventListener('click', () => {
                 saveModal.classList.add('hidden');
                 saveModal.classList.remove('flex');
-                setSaveButtonState(false);
                 waveformEl.style.display = 'block'; // Show waveform again
             });
 
@@ -1098,31 +1078,24 @@
                     setTimeout(() => memoNameInput.classList.remove('ring-2', 'ring-red-500'), 2000);
                     return;
                 }
-
-                if (confirmSaveBtn.disabled) return; // Prevent double clicks while saving
-                setSaveButtonState(true);
                 
-                try {
-                    const startTime = trimRegion.start;
-                    const endTime = trimRegion.end;
+                const startTime = trimRegion.start;
+                const endTime = trimRegion.end;
 
-                    // Actually trim the audio blob using Web Audio API
-                    const trimmedBlob = await trimAudioBlob(tempAudioBlob, startTime, endTime);
+                // Actually trim the audio blob using Web Audio API
+                const trimmedBlob = await trimAudioBlob(tempAudioBlob, startTime, endTime);
 
-                    // Save with 0 as start since we're saving the trimmed audio
-                    await saveRecording(name, trimmedBlob, 0, endTime - startTime);
+                // Save with 0 as start since we're saving the trimmed audio
+                await saveRecording(name, trimmedBlob, 0, endTime - startTime);
 
-                    saveModal.classList.add('hidden');
-                    saveModal.classList.remove('flex');
-                    tempAudioBlob = null;
-                    if(wavesurfer) wavesurfer.destroy();
-                    waveformEl.style.display = 'block'; // Reset for next time
+                saveModal.classList.add('hidden');
+                saveModal.classList.remove('flex');
+                tempAudioBlob = null;
+                if(wavesurfer) wavesurfer.destroy();
+                waveformEl.style.display = 'block'; // Reset for next time
 
-                    await renderRecordingsList();
-                    showView('list');
-                } finally {
-                    setSaveButtonState(false);
-                }
+                await renderRecordingsList();
+                showView('list');
             });
 
             confirmDeleteBtn.addEventListener('click', () => {
