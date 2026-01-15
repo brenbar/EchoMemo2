@@ -303,8 +303,6 @@
         document.addEventListener('DOMContentLoaded', () => {
 
             // --- Globals & State ---
-            const TARGET_AUDIO_BITRATE = 64000; // lower bitrate to shrink files without killing clarity
-            const PREFERRED_MIME_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
             const DB_NAME = 'EchoMemoDB';
             const DB_VERSION = 1;
             const STORE_NAME = 'recordings';
@@ -468,10 +466,6 @@
                 });
             }
 
-            function getSupportedMimeType() {
-                return PREFERRED_MIME_TYPES.find(type => MediaRecorder.isTypeSupported(type)) || null;
-            }
-
             // --- Audio Recording ---
             function prepareRecordingView() {
                 showView('record');
@@ -485,7 +479,7 @@
 
             async function startRecording() {
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                     recordedChunks = [];
 
                     // Update UI for recording state
@@ -495,7 +489,9 @@
                     stopRecordingBtn.classList.remove('hidden');
                     scriptTextarea.readOnly = true; // Prevent editing while recording
 
-                    const supportedMimeType = getSupportedMimeType();
+                    // Find a supported MIME type
+                    const mimeTypes = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
+                    const supportedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
 
                     if (!supportedMimeType) {
                         alert("No supported audio format found for recording.");
@@ -503,10 +499,7 @@
                         return;
                     }
 
-                    mediaRecorder = new MediaRecorder(stream, { 
-                        mimeType: supportedMimeType,
-                        audioBitsPerSecond: TARGET_AUDIO_BITRATE,
-                    });
+                    mediaRecorder = new MediaRecorder(stream, { mimeType: supportedMimeType });
                     mediaRecorder.ondataavailable = event => {
                         if (event.data && event.data.size > 0) {
                             recordedChunks.push(event.data);
@@ -558,23 +551,29 @@
 
             // --- Trim View ---
             async function trimAudioBlob(blob, startTime, endTime) {
+                // Create an AudioContext to decode and process the audio
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                await audioContext.resume();
-
+                
+                // Convert blob to ArrayBuffer
                 const arrayBuffer = await blob.arrayBuffer();
+                
+                // Decode the audio data
                 const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
+                
+                // Calculate the sample range to extract
                 const sampleRate = audioBuffer.sampleRate;
                 const startSample = Math.floor(startTime * sampleRate);
                 const endSample = Math.floor(endTime * sampleRate);
                 const numSamples = endSample - startSample;
-
+                
+                // Create a new buffer for the trimmed audio
                 const trimmedBuffer = audioContext.createBuffer(
                     audioBuffer.numberOfChannels,
                     numSamples,
                     sampleRate
                 );
-
+                
+                // Copy the trimmed portion from each channel
                 for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
                     const sourceData = audioBuffer.getChannelData(channel);
                     const trimmedData = trimmedBuffer.getChannelData(channel);
@@ -582,73 +581,12 @@
                         trimmedData[i] = sourceData[startSample + i];
                     }
                 }
-
-                const supportedMimeType = getSupportedMimeType();
-                if (!supportedMimeType) {
-                    await audioContext.close();
-                    return audioBufferToWav(trimmedBuffer);
-                }
-
-                try {
-                    const encoded = await encodeAudioBuffer(trimmedBuffer, supportedMimeType, TARGET_AUDIO_BITRATE);
-                    await audioContext.close();
-                    return encoded;
-                } catch (err) {
-                    console.error('Failed to encode trimmed audio, falling back to WAV', err);
-                    await audioContext.close();
-                    return audioBufferToWav(trimmedBuffer);
-                }
-            }
-
-            // Re-encode an AudioBuffer to a compressed blob (Opus/WebM preferred)
-            function encodeAudioBuffer(buffer, mimeType, audioBitsPerSecond) {
-                return new Promise((resolve, reject) => {
-                    try {
-                        const exportContext = new (window.AudioContext || window.webkitAudioContext)();
-                        const destination = exportContext.createMediaStreamDestination();
-                        const source = exportContext.createBufferSource();
-                        source.buffer = buffer;
-                        source.connect(destination);
-                        source.start();
-
-                        const chunks = [];
-                        const recorder = new MediaRecorder(destination.stream, { 
-                            mimeType,
-                            audioBitsPerSecond,
-                        });
-
-                        recorder.ondataavailable = (event) => {
-                            if (event.data && event.data.size > 0) {
-                                chunks.push(event.data);
-                            }
-                        };
-
-                        recorder.onstop = async () => {
-                            source.disconnect();
-                            destination.disconnect();
-                            await exportContext.close();
-                            resolve(new Blob(chunks, { type: mimeType }));
-                        };
-
-                        recorder.onerror = (event) => {
-                            console.error('MediaRecorder error while encoding trimmed audio', event);
-                            reject(event);
-                        };
-
-                        exportContext.resume().then(() => {
-                            recorder.start();
-                            source.start();
-                        });
-
-                        source.onended = () => {
-                            if (recorder.state === 'recording') {
-                                recorder.stop();
-                            }
-                        };
-                    } catch (error) {
-                        reject(error);
-                    }
-                });
+                
+                // Convert the trimmed buffer back to a blob
+                // We'll use WAV format for maximum compatibility
+                const wavBlob = audioBufferToWav(trimmedBuffer);
+                
+                return wavBlob;
             }
             
             // Helper function to convert AudioBuffer to WAV blob
