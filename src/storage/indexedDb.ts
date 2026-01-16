@@ -134,7 +134,20 @@ export async function saveRecording(input: {
 export async function getRecordingWithData(id: string): Promise<RecordingWithData | null> {
   const db = await getDb()
   const tx = db.transaction(STORE_NAME, 'readonly')
-  const record = (await wrapRequest(tx.objectStore(STORE_NAME).get(id))) as LegacyRecordingRecord | undefined
+  const store = tx.objectStore(STORE_NAME)
+
+  // Old databases sometimes used numeric keys; new ones use string UUIDs. If the
+  // string id lookup misses, fall back to a numeric key so legacy entries load.
+  const candidateKeys: (string | number)[] = [id]
+  const numericId = toNumber(id)
+  if (numericId !== null) candidateKeys.push(numericId)
+
+  let record: LegacyRecordingRecord | undefined
+  for (const key of candidateKeys) {
+    record = (await wrapRequest(store.get(key))) as LegacyRecordingRecord | undefined
+    if (record) break
+  }
+
   await txDone(tx)
   return record ? coalesceRecord(record) : null
 }
