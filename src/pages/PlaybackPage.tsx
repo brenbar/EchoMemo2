@@ -136,7 +136,7 @@ export default function PlaybackPage() {
       <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
         <div className="flex items-start gap-3">
           <button
-            className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+            className="inline-flex items-center gap-2 rounded-md pr-2 py-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
             onClick={() => navigate('/')}
             aria-label="Back to list"
           >
