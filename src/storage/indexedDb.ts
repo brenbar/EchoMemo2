@@ -133,10 +133,19 @@ export async function saveRecording(input: {
 
 export async function getRecordingWithData(id: string): Promise<RecordingWithData | null> {
   const db = await getDb()
-  const tx = db.transaction(STORE_NAME, 'readonly')
-  const record = (await wrapRequest(tx.objectStore(STORE_NAME).get(id))) as LegacyRecordingRecord | undefined
-  await txDone(tx)
-  return record ? coalesceRecord(record) : null
+  const firstTx = db.transaction(STORE_NAME, 'readonly')
+  const direct = (await wrapRequest(firstTx.objectStore(STORE_NAME).get(id))) as LegacyRecordingRecord | undefined
+  await txDone(firstTx)
+  if (direct) return coalesceRecord(direct)
+
+  const fallbackTx = db.transaction(STORE_NAME, 'readonly')
+  const all = (await wrapRequest(fallbackTx.objectStore(STORE_NAME).getAll())) as LegacyRecordingRecord[]
+  await txDone(fallbackTx)
+  const match = all
+    .map((item) => coalesceRecord(item))
+    .find((item) => item.id === id || item.name === id)
+
+  return match ?? null
 }
 
 export async function deleteRecording(id: string): Promise<void> {
