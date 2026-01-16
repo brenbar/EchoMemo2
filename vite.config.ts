@@ -2,11 +2,10 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const repoName = process.env.GITHUB_REPOSITORY?.split('/').pop()?.trim()
-const repoBase = process.env.GITHUB_PAGES_BASE || (repoName ? `/${repoName}/` : '/echomemo3/')
+const basePath = process.env.GITHUB_PAGES_BASE || '/echomemo3/'
 
 export default defineConfig({
-  base: repoBase || '/',
+  base: basePath,
   plugins: [
     react(),
     VitePWA({
@@ -15,7 +14,8 @@ export default defineConfig({
       manifest: {
         name: 'EchoMemo',
         short_name: 'EchoMemo',
-        start_url: '.',
+        start_url: basePath,
+        scope: basePath,
         display: 'standalone',
         background_color: '#f8fafc',
         theme_color: '#0f172a',
