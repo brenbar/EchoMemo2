@@ -1,24 +1,49 @@
-import { openDB, type IDBPDatabase } from 'idb'
 import type { RecordingMeta, RecordingWithData } from '../types'
 
 const DB_NAME = 'echo-memo-db'
 const STORE_NAME = 'recordings'
 const DB_VERSION = 1
 
-interface RecordingRecord extends RecordingWithData {}
+type RecordingRecord = RecordingWithData
 
-let dbPromise: Promise<IDBPDatabase> | null = null
+let dbPromise: Promise<IDBDatabase> | null = null
 
-function getDb() {
-  if (!dbPromise) {
-    dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME, { keyPath: 'id' })
-        }
-      },
-    })
+function wrapRequest<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error ?? new Error('IndexedDB request failed'))
+  })
+}
+
+function txDone(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve()
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted'))
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction failed'))
+  })
+}
+
+function getDb(): Promise<IDBDatabase> {
+  if (dbPromise) return dbPromise
+
+  if (typeof indexedDB === 'undefined') {
+    return Promise.reject(new Error('IndexedDB is not available in this environment'))
   }
+
+  dbPromise = new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION)
+
+    request.onupgradeneeded = () => {
+      const db = request.result
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id' })
+      }
+    }
+
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error ?? new Error('Failed to open IndexedDB'))
+  })
+
   return dbPromise
 }
 
@@ -30,9 +55,16 @@ function safeId() {
 
 export async function listRecordings(): Promise<RecordingMeta[]> {
   const db = await getDb()
-  const records = (await db.getAll(STORE_NAME)) as RecordingRecord[]
+  const tx = db.transaction(STORE_NAME, 'readonly')
+  const store = tx.objectStore(STORE_NAME)
+  const records = (await wrapRequest(store.getAll())) as RecordingRecord[]
+  await txDone(tx)
   return records
-    .map(({ blob, ...meta }) => meta)
+    .map((record) => {
+      const { blob: _blob, ...meta } = record
+      void _blob
+      return meta
+    })
     .sort((a, b) => b.createdAt - a.createdAt)
 }
 
@@ -49,43 +81,68 @@ export async function saveRecording(input: {
     size: input.blob.size,
     ...input,
   }
-  await db.put(STORE_NAME, record)
-  const { blob, ...meta } = record
+  const tx = db.transaction(STORE_NAME, 'readwrite')
+  tx.objectStore(STORE_NAME).put(record)
+  await txDone(tx)
+  const { blob: _blob, ...meta } = record
+  void _blob
   return meta
 }
 
 export async function getRecordingWithData(id: string): Promise<RecordingWithData | null> {
   const db = await getDb()
-  const record = (await db.get(STORE_NAME, id)) as RecordingRecord | undefined
+  const tx = db.transaction(STORE_NAME, 'readonly')
+  const record = (await wrapRequest(tx.objectStore(STORE_NAME).get(id))) as RecordingRecord | undefined
+  await txDone(tx)
   return record ?? null
 }
 
 export async function deleteRecording(id: string): Promise<void> {
   const db = await getDb()
-  await db.delete(STORE_NAME, id)
+  const tx = db.transaction(STORE_NAME, 'readwrite')
+  tx.objectStore(STORE_NAME).delete(id)
+  await txDone(tx)
 }
 
 export async function renameRecording(id: string, name: string): Promise<RecordingMeta | null> {
   const db = await getDb()
-  const record = (await db.get(STORE_NAME, id)) as RecordingRecord | undefined
-  if (!record) return null
+  const tx = db.transaction(STORE_NAME, 'readwrite')
+  const store = tx.objectStore(STORE_NAME)
+  const record = (await wrapRequest(store.get(id))) as RecordingRecord | undefined
+  if (!record) {
+    tx.abort()
+    await txDone(tx).catch(() => {})
+    return null
+  }
   record.name = name
-  await db.put(STORE_NAME, record)
-  const { blob, ...meta } = record
+  store.put(record)
+  await txDone(tx)
+  const { blob: _blob, ...meta } = record
+  void _blob
   return meta
 }
 
 export async function getTotalSize(): Promise<number> {
   const db = await getDb()
-  const records = (await db.getAllKeys(STORE_NAME)) as string[]
-  if (!records.length) return 0
-  const tx = db.transaction(STORE_NAME, 'readonly')
-  const store = tx.objectStore(STORE_NAME)
-  let total = 0
-  for (const id of records) {
-    const record = (await store.get(id)) as RecordingRecord | undefined
-    if (record) total += record.size
-  }
-  await tx.done
-  return total
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly')
+    const store = tx.objectStore(STORE_NAME)
+    const cursorRequest = store.openCursor()
+    let total = 0
+
+    cursorRequest.onsuccess = () => {
+      const cursor = cursorRequest.result
+      if (cursor) {
+        const value = cursor.value as RecordingRecord
+        total += value?.size ?? 0
+        cursor.continue()
+      } else {
+        resolve(total)
+      }
+    }
+
+    cursorRequest.onerror = () => reject(cursorRequest.error ?? new Error('Failed to read total size'))
+    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted'))
+    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction failed'))
+  })
 }

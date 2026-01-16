@@ -13,6 +13,7 @@ export default function PlaybackPage() {
   const [autoPlayBlocked, setAutoPlayBlocked] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   useEffect(() => {
     if (!id) return undefined
@@ -40,14 +41,42 @@ export default function PlaybackPage() {
     if (!audioRef.current || !objectUrl) return
     audioRef.current.src = objectUrl
     audioRef.current.loop = true
-    audioRef.current.play().catch(() => setAutoPlayBlocked(true))
+    audioRef.current
+      .play()
+      .then(() => setIsPlaying(true))
+      .catch(() => {
+        setAutoPlayBlocked(true)
+        setIsPlaying(false)
+      })
+  }, [objectUrl])
+
+  useEffect(() => {
+    const player = audioRef.current
+    if (!player) return undefined
+
+    const handlePlay = () => setIsPlaying(true)
+    const handlePause = () => setIsPlaying(false)
+
+    player.addEventListener('play', handlePlay)
+    player.addEventListener('pause', handlePause)
+
+    return () => {
+      player.removeEventListener('play', handlePlay)
+      player.removeEventListener('pause', handlePause)
+    }
   }, [objectUrl])
 
   const togglePlayback = () => {
     const player = audioRef.current
     if (!player) return
     if (player.paused) {
-      player.play().catch(() => setAutoPlayBlocked(true))
+      player
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => {
+          setAutoPlayBlocked(true)
+          setIsPlaying(false)
+        })
     } else {
       player.pause()
     }
@@ -83,7 +112,7 @@ export default function PlaybackPage() {
               onClick={togglePlayback}
               disabled={!recording}
             >
-              {audioRef.current?.paused ? 'Play' : 'Pause'}
+              {isPlaying ? 'Pause' : 'Play'}
             </button>
             {autoPlayBlocked && (
               <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">

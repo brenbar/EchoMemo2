@@ -8,12 +8,11 @@
     "build": "mkdir -p .tmp && TMPDIR=\"$PWD/.tmp\" tsc -b && TMPDIR=\"$PWD/.tmp\" vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:e2e": "playwright test --project=chromium",
+    "test:e2e": "mkdir -p .tmp && TMPDIR=\"$PWD/.tmp\" playwright test --project=chromium",
     "typecheck": "tsc --noEmit",
     "postbuild": "cp -f dist/index.html dist/404.html"
   },
   "dependencies": {
-    "idb": "^8.0.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.12.0"
