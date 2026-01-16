@@ -2,7 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const basePath = process.env.GITHUB_PAGES_BASE || '/echomemo3/'
+const repoName = process.env.GITHUB_REPOSITORY?.split('/').pop()?.trim()
+const basePath = process.env.GITHUB_PAGES_BASE || (repoName ? `/${repoName}/` : '/EchoMemo3/')
 
 export default defineConfig({
   base: basePath,
