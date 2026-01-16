@@ -28,7 +28,7 @@ export default function ListPage() {
         {loading && <div className="text-sm text-slate-500 dark:text-slate-400">Loading your recordings…</div>}
         {!loading && recordings.length === 0 && (
           <div className="rounded-xl border border-dashed border-slate-300 bg-white/70 p-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
-            No recordings yet. Tap “New recording” to create your first memory aid.
+            No recordings yet. Tap “New recording” to create one.
           </div>
         )}
         {!loading && recordings.map((recording) => (
@@ -48,7 +48,7 @@ export default function ListPage() {
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200/80 bg-white/90 backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/90">
         <div className="mx-auto flex w-full max-w-5xl items-stretch px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <button
-            className="w-full rounded-lg bg-indigo-600 py-3 text-base font-semibold text-white shadow-md transition hover:bg-indigo-500"
+            className="w-full rounded-lg bg-indigo-600 my-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-indigo-500"
             onClick={() => navigate('/record')}
           >
             New recording
