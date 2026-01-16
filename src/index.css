@@ -8,6 +8,7 @@
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  color-scheme: light dark;
 }
 
 body {
@@ -20,6 +21,19 @@ body {
 
 a {
   color: inherit;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: #e2e8f0;
+    background-color: #0b1220;
+  }
+
+  body {
+    background: radial-gradient(circle at 20% 20%, #111827, #0b1220 45%),
+      radial-gradient(circle at 80% 0%, #0f172a, transparent 35%);
+    color: #e2e8f0;
+  }
 }
 
 button:focus-visible,

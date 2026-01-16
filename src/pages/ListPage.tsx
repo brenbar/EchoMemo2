@@ -15,13 +15,13 @@ export default function ListPage() {
   const [deleteTarget, setDeleteTarget] = useState<RecordingMeta | null>(null)
 
   return (
-    <div className="flex flex-col gap-5">
-      <section className="flex flex-col gap-4 rounded-2xl bg-white/80 p-5 shadow-md">
+    <div className="flex flex-col gap-5 text-slate-900 dark:text-slate-100">
+      <section className="flex flex-col gap-4 rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm uppercase tracking-wide text-slate-500">Your library</p>
-            <h1 className="text-2xl font-bold text-slate-900">Saved recordings</h1>
-            <p className="text-sm text-slate-600">Storage used: {formatBytes(totalBytes)}</p>
+            <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400">Your library</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Saved recordings</h1>
+            <p className="text-sm text-slate-600 dark:text-slate-300">Storage used: {formatBytes(totalBytes)}</p>
           </div>
           <InstallPwaButton />
         </div>
@@ -36,9 +36,9 @@ export default function ListPage() {
       </section>
 
       <section className="flex flex-col gap-3">
-        {loading && <div className="text-sm text-slate-500">Loading your recordings…</div>}
+        {loading && <div className="text-sm text-slate-500 dark:text-slate-400">Loading your recordings…</div>}
         {!loading && recordings.length === 0 && (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white/70 p-6 text-sm text-slate-600">
+          <div className="rounded-xl border border-dashed border-slate-300 bg-white/70 p-6 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
             No recordings yet. Tap “New recording” to create your first memory aid.
           </div>
         )}
@@ -63,7 +63,7 @@ export default function ListPage() {
         footer={
           <>
             <button
-              className="rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              className="rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
               onClick={() => setRenameTarget(null)}
             >
               Cancel
@@ -83,12 +83,12 @@ export default function ListPage() {
         }
       >
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-slate-700" htmlFor="rename">
+          <label className="text-sm font-medium text-slate-700 dark:text-slate-200" htmlFor="rename">
             Recording name
           </label>
           <input
             id="rename"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
           />
@@ -102,7 +102,7 @@ export default function ListPage() {
         footer={
           <>
             <button
-              className="rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              className="rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
               onClick={() => setDeleteTarget(null)}
             >
               Cancel
@@ -119,7 +119,7 @@ export default function ListPage() {
           </>
         }
       >
-        <p className="text-sm text-slate-700">
+        <p className="text-sm text-slate-700 dark:text-slate-200">
           This will remove “{deleteTarget?.name ?? 'recording'}” from your device storage. You cannot undo this action.
         </p>
       </Modal>

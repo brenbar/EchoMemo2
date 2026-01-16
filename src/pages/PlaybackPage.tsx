@@ -83,18 +83,18 @@ export default function PlaybackPage() {
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[2fr,1fr]">
-      <div className="rounded-2xl bg-white/80 p-5 shadow-md">
+    <div className="grid gap-5 text-slate-900 dark:text-slate-100 lg:grid-cols-[2fr,1fr]">
+      <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm uppercase tracking-wide text-slate-500">Playback</p>
-            <h1 className="text-2xl font-bold text-slate-900">{recording?.name ?? 'Loading…'}</h1>
+            <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400">Playback</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">{recording?.name ?? 'Loading…'}</h1>
             {recording && (
-              <p className="text-sm text-slate-600">Duration: {formatDuration(recording.duration)} — loops automatically</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">Duration: {formatDuration(recording.duration)} — loops automatically</p>
             )}
           </div>
           <button
-            className="rounded-full px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+            className="rounded-full px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
             onClick={() => navigate('/')}
           >
             Back to list
@@ -103,7 +103,7 @@ export default function PlaybackPage() {
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
         <div className="mt-5 flex flex-col gap-3">
           <audio ref={audioRef} className="hidden" />
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200">
             The recording loops. Use the controls to pause or resume as you read along.
           </div>
           <div className="flex flex-wrap gap-3">
@@ -115,7 +115,7 @@ export default function PlaybackPage() {
               {isPlaying ? 'Pause' : 'Play'}
             </button>
             {autoPlayBlocked && (
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-900/40 dark:text-amber-100">
                 Tap play to start audio on Safari.
               </span>
             )}
@@ -123,9 +123,9 @@ export default function PlaybackPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-4 shadow-inner">
-        <h3 className="text-sm font-semibold text-slate-800">Script</h3>
-        <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-4 shadow-inner dark:border-slate-700 dark:bg-slate-900/60">
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Script</h3>
+        <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">
           {recording?.scriptText || 'Script not available.'}
         </p>
       </div>

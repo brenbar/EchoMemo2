@@ -43,7 +43,7 @@ export default function InstallPwaButton() {
         Install app
       </button>
       {showIOSHint && (
-        <div className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">
+        <div className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
           On iOS Safari, tap the share icon then “Add to Home Screen”.
         </div>
       )}
