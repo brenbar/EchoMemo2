@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "mkdir -p .tmp && TMPDIR=\"$PWD/.tmp\" vite",
     "build": "mkdir -p .tmp && TMPDIR=\"$PWD/.tmp\" tsc -b && TMPDIR=\"$PWD/.tmp\" vite build",
     "lint": "eslint .",
     "preview": "vite preview",
