@@ -134,27 +134,24 @@ export default function PlaybackPage() {
   return (
     <div className="grid gap-5 text-slate-900 dark:text-slate-100 lg:grid-cols-[2fr,1fr]">
       <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400">Playback</p>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">{recording?.name ?? 'Loading…'}</h1>
-            {recording && (
-              <p className="text-sm text-slate-600 dark:text-slate-300">Duration: {formatDuration(recording.duration)} — loops automatically</p>
-            )}
-          </div>
+        <div className="flex items-start gap-3">
           <button
-            className="rounded-full px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
             onClick={() => navigate('/')}
+            aria-label="Back to list"
           >
-            Back to list
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 5.75 9.25 12l6.25 6.25" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 12h14" />
+            </svg>
           </button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">{recording?.name ?? 'Loading…'}</h1>
+          </div>
         </div>
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
-        <div className="mt-5 flex flex-col gap-3">
+        <div className="pt-4 mt-5 flex flex-col gap-3">
           <audio ref={audioRef} className="hidden" />
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200">
-            The recording loops. Use the controls to pause or resume as you read along.
-          </div>
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
               <button
