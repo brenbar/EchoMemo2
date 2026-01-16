@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import InstallPwaButton from '../components/InstallPwaButton'
 import Modal from '../components/Modal'
 import RecordingRow from '../components/RecordingRow'
 import { useRecordings } from '../state/RecordingsContext'
@@ -15,23 +14,13 @@ export default function ListPage() {
   const [deleteTarget, setDeleteTarget] = useState<RecordingMeta | null>(null)
 
   return (
-    <div className="flex flex-col gap-5 text-slate-900 dark:text-slate-100">
+    <div className="flex flex-col gap-5 pb-24 text-slate-900 dark:text-slate-100">
       <section className="flex flex-col gap-4 rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400">Your library</p>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Saved recordings</h1>
             <p className="text-sm text-slate-600 dark:text-slate-300">Storage used: {formatBytes(totalBytes)}</p>
           </div>
-          <InstallPwaButton />
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <button
-            className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
-            onClick={() => navigate('/record')}
-          >
-            New recording
-          </button>
         </div>
       </section>
 
@@ -55,6 +44,17 @@ export default function ListPage() {
           />
         ))}
       </section>
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200/80 bg-white/90 backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/90">
+        <div className="mx-auto flex w-full max-w-5xl items-stretch px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <button
+            className="w-full rounded-lg bg-indigo-600 py-3 text-base font-semibold text-white shadow-md transition hover:bg-indigo-500"
+            onClick={() => navigate('/record')}
+          >
+            New recording
+          </button>
+        </div>
+      </div>
 
       <Modal
         open={Boolean(renameTarget)}

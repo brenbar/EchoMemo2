@@ -1,11 +1,10 @@
-import { Route, Routes, useLocation } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
+import InstallPwaButton from './components/InstallPwaButton.tsx'
 import ListPage from './pages/ListPage.tsx'
 import PlaybackPage from './pages/PlaybackPage.tsx'
 import RecordPage from './pages/RecordPage.tsx'
 
 function Header() {
-  const location = useLocation()
-
   return (
     <header className="backdrop-blur-sm bg-white/70 border-b border-slate-200 sticky top-0 z-20 dark:border-slate-800 dark:bg-slate-900/70">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
@@ -18,10 +17,7 @@ function Header() {
             <div className="text-xs text-slate-500 dark:text-slate-400">Memorize by looping yourself</div>
           </div>
         </div>
-        <nav className="flex items-center gap-3 text-sm font-medium text-slate-600 dark:text-slate-300">
-          <span className={location.pathname === '/' ? 'text-indigo-600 dark:text-indigo-300' : ''}>Library</span>
-          <span className={location.pathname.startsWith('/record') ? 'text-indigo-600 dark:text-indigo-300' : ''}>Record</span>
-        </nav>
+        <InstallPwaButton />
       </div>
     </header>
   )
