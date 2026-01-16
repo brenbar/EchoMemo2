@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import Modal from './Modal'
 import type { BeforeInstallPromptEvent } from '../types'
 
 function isIOS() {
@@ -34,19 +35,35 @@ export default function InstallPwaButton() {
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={handleInstall}
-        className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+    <>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleInstall}
+          className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+        >
+          Install app
+        </button>
+      </div>
+
+      <Modal
+        open={showIOSHint}
+        title="Install on iOS"
+        onClose={() => setShowIOSHint(false)}
+        footer={
+          <button
+            type="button"
+            onClick={() => setShowIOSHint(false)}
+            className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+          >
+            Got it
+          </button>
+        }
       >
-        Install app
-      </button>
-      {showIOSHint && (
-        <div className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-          On iOS Safari, tap the share icon then “Add to Home Screen”.
-        </div>
-      )}
-    </div>
+        <p className="leading-relaxed text-sm">
+          On iOS Safari, tap the share icon, then choose “Add to Home Screen” to install this app.
+        </p>
+      </Modal>
+    </>
   )
 }

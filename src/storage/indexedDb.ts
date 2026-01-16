@@ -1,6 +1,6 @@
 import type { RecordingMeta, RecordingWithData } from '../types'
 
-const DB_NAME = 'echo-memo-db'
+const DB_NAME = 'EchoMemoDB'
 const STORE_NAME = 'recordings'
 const DB_VERSION = 1
 
