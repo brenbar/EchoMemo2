@@ -29,8 +29,8 @@ async function setupBrowserStubs(page: Page) {
       }
 
       start() {
-        // Provide a tiny blob to simulate captured audio.
-        const blob = new Blob(['test-audio'], { type: this.mimeType })
+        const payload = new Uint8Array(32 * 1024)
+        const blob = new Blob([payload], { type: this.mimeType })
         queueMicrotask(() => this.ondataavailable?.({ data: blob }))
       }
 
@@ -82,9 +82,16 @@ test.beforeEach(async ({ page }) => {
   await setupBrowserStubs(page)
 })
 
-test('library shows empty state', async ({ page }) => {
+test('library preloads free samples', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText('No items yet. Add a folder or create a recording.')).toBeVisible()
+  const freeFolder = page.getByRole('button', { name: '_free' })
+  await expect(freeFolder).toBeVisible()
+
+  await freeFolder.click()
+  await expect(page).toHaveURL(/\/folder\/_free/)
+  await expect(page.getByText('Free 440 Hz')).toBeVisible()
+  await expect(page.getByText('Free 660 Hz')).toBeVisible()
+  await expect(page.getByText('Free 880 Hz')).toBeVisible()
 })
 
 test('user can record and see entry in library', async ({ page }) => {
@@ -98,7 +105,8 @@ test('user can rename a recording from the library', async ({ page }) => {
   const updated = 'Renamed recording'
   await createRecording(page, original)
 
-  await page.getByRole('button', { name: 'Item actions', exact: true }).first().click()
+  const targetRow = page.locator('div[role="button"]', { hasText: original }).first()
+  await targetRow.getByRole('button', { name: 'Item actions', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Edit' }).click()
   await page.getByLabel('Item name').fill(updated)
   await page.getByRole('button', { name: 'Save' }).click()
@@ -136,13 +144,25 @@ test('user can open playback page and see script', async ({ page }) => {
   await expect(page.getByRole('button', { name: /Play|Pause/ })).toBeVisible()
 })
 
+test('user can play a free sample without saving to IndexedDB', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: '_free' }).click()
+  await page.getByRole('button', { name: 'Free 440 Hz' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Free 440 Hz' })).toBeVisible()
+  await expect(page.getByText('Free 440 Hz (2 second test tone)')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Play|Pause/ })).toBeVisible()
+})
+
 test('user can delete a recording', async ({ page }) => {
   const name = 'Delete me'
   await createRecording(page, name)
 
-  await page.getByRole('button', { name: 'Item actions', exact: true }).first().click()
+  const targetRow = page.locator('div[role="button"]', { hasText: name }).first()
+  await targetRow.getByRole('button', { name: 'Item actions', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Delete' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
 
-  await expect(page.getByText('No items yet. Add a folder or create a recording.')).toBeVisible()
+  await expect(page.getByText(name)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '_free' })).toBeVisible()
 })

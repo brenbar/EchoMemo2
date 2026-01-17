@@ -27,7 +27,8 @@ async function setupBrowserStubs(page: Page) {
       }
 
       start() {
-        const blob = new Blob(['test-audio'], { type: this.mimeType })
+        const payload = new Uint8Array(32 * 1024)
+        const blob = new Blob([payload], { type: this.mimeType })
         queueMicrotask(() => this.ondataavailable?.({ data: blob }))
       }
 
@@ -174,11 +175,12 @@ test('folders and items are alphabetized with folders first', async ({ page }) =
   await createRecordingInCurrentView(page, 'Alpha Recording')
 
   const rows = page.locator('div[role="button"][tabindex="0"]')
-  await expect(rows).toHaveCount(4)
-  await expect(rows.nth(0)).toContainText('Alpha Folder')
-  await expect(rows.nth(1)).toContainText('Zulu Folder')
-  await expect(rows.nth(2)).toContainText('Alpha Recording')
-  await expect(rows.nth(3)).toContainText('Beta Recording')
+  await expect(rows).toHaveCount(5)
+  await expect(rows.nth(0)).toContainText('_free')
+  await expect(rows.nth(1)).toContainText('Alpha Folder')
+  await expect(rows.nth(2)).toContainText('Zulu Folder')
+  await expect(rows.nth(3)).toContainText('Alpha Recording')
+  await expect(rows.nth(4)).toContainText('Beta Recording')
 })
 
 test('move modal lists folders alphabetically', async ({ page }) => {
@@ -204,10 +206,11 @@ test('move modal lists folders alphabetically', async ({ page }) => {
   await expect(dialog).toBeVisible()
 
   const folderButtons = dialog.locator('div.divide-y button')
-  await expect(folderButtons).toHaveCount(3)
-  await expect(folderButtons.nth(0)).toContainText('Alpha Folder')
-  await expect(folderButtons.nth(1)).toContainText('Beta Folder')
-  await expect(folderButtons.nth(2)).toContainText('Zulu Folder')
+  await expect(folderButtons).toHaveCount(4)
+  await expect(folderButtons.nth(0)).toContainText('_free')
+  await expect(folderButtons.nth(1)).toContainText('Alpha Folder')
+  await expect(folderButtons.nth(2)).toContainText('Beta Folder')
+  await expect(folderButtons.nth(3)).toContainText('Zulu Folder')
 
   await dialog.getByRole('button', { name: 'Cancel' }).click()
 })

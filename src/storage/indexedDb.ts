@@ -8,6 +8,7 @@ import type {
   RecordingMeta,
   RecordingWithData,
 } from '../types'
+import { getFreeRecording } from '../sample/freeSamples'
 
 const DB_NAME = 'EchoMemoNewDB'
 const LEGACY_DB_NAME = 'EchoMemoDB'
@@ -502,7 +503,7 @@ export async function getPlaylistWithData(id: string): Promise<PlaylistWithData 
 
   const resolved: PlaylistWithData['resolved'] = []
   for (const entry of record.entries) {
-    const rec = await getRecordingWithData(entry.recordingId)
+    const rec = getFreeRecording(entry.recordingId) ?? (await getRecordingWithData(entry.recordingId))
     if (rec) {
       resolved.push({ recording: rec, repeats: Math.max(1, Math.round(entry.repeats || 1)) })
     }

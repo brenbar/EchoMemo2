@@ -20,6 +20,7 @@ import {
   markLegacyMigrationHandled,
   sortLibraryItems,
 } from '../storage/indexedDb'
+import { getFreeLibraryItems, getFreeRecording, getFreeTotalBytes } from '../sample/freeSamples'
 
 type LegacyStatus = 'checking' | 'none' | 'available' | 'importing' | 'imported' | 'error'
 
@@ -66,10 +67,11 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async (_parentId: string | null = null) => {
     setLoading(true)
     const [list, total] = await Promise.all([listAllItems(), getTotalSize()])
-    setItems(sortLibraryItems(list))
-    setTotalBytes(total)
+    const combined = sortLibraryItems([...getFreeLibraryItems(), ...list])
+    setItems(combined)
+    setTotalBytes(total + getFreeTotalBytes())
     setLoading(false)
-  }, [sortLibraryItems])
+  }, [getFreeLibraryItems, getFreeTotalBytes, sortLibraryItems])
 
   const checkLegacy = useCallback(async () => {
     setLegacyError(null)
@@ -184,9 +186,23 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
     [sortLibraryItems],
   )
 
-  const listFoldersForParent = useCallback((parentId: string | null = null) => listFolders(parentId), [])
+  const listFoldersForParent = useCallback(
+    async (parentId: string | null = null) => {
+      const folders = await listFolders(parentId)
+      const freeFolders = parentId === null ? getFreeLibraryItems().filter((item) => item.isFolder === true) : []
+      return sortLibraryItems([...folders, ...freeFolders])
+    },
+    [getFreeLibraryItems, listFolders, sortLibraryItems],
+  )
 
-  const fetchRecording = useCallback((id: string) => getRecordingWithData(id), [])
+  const fetchRecording = useCallback(
+    async (id: string) => {
+      const free = getFreeRecording(id)
+      if (free) return free
+      return getRecordingWithData(id)
+    },
+    [getFreeRecording],
+  )
   const fetchPlaylist = useCallback((id: string) => getPlaylistWithData(id), [])
 
   const importLegacyData = useCallback(async () => {

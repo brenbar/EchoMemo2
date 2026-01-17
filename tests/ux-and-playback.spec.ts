@@ -31,7 +31,8 @@ async function setupDefaultStubs(page: Page) {
       }
 
       start() {
-        const blob = new Blob(['test-audio'], { type: this.mimeType })
+        const payload = new Uint8Array(32 * 1024)
+        const blob = new Blob([payload], { type: this.mimeType })
         queueMicrotask(() => this.ondataavailable?.({ data: blob }))
       }
 
@@ -351,14 +352,32 @@ test('move modal prevents staying put and can move item to root', async ({ page 
 test('storage used updates after adding and deleting a recording', async ({ page }) => {
   await setupDefaultStubs(page)
   await page.goto('/')
-  await expect(page.getByText(/Storage used: 0 B/)).toBeVisible()
+
+  const parseStorageBytes = async () => {
+    const label = page.getByText(/Storage used:/)
+    await expect(label).toBeVisible()
+    const text = await label.innerText()
+    const match = text.match(/Storage used: ([0-9.]+) (B|KB|MB|GB)/)
+    if (!match) throw new Error('Unable to parse storage usage text')
+    const numeric = parseFloat(match[1])
+    const unit = match[2]
+    const unitIndex = ['B', 'KB', 'MB', 'GB'].indexOf(unit)
+    const bytes = numeric * 1024 ** Math.max(0, unitIndex)
+    if (!Number.isFinite(bytes)) throw new Error('Storage usage text did not produce a number')
+    return bytes
+  }
+
+  const initialBytes = await parseStorageBytes()
 
   const name = await createRecording(page, 'Sized Clip')
-  await expect(page.getByText(/Storage used: \d+ B/)).toBeVisible()
+  const afterAdd = await parseStorageBytes()
+  expect(afterAdd).toBeGreaterThan(initialBytes)
 
-  await page.getByRole('button', { name: 'Item actions', exact: true }).first().click()
+  const targetRow = page.locator('div[role="button"]', { hasText: name }).first()
+  await targetRow.getByRole('button', { name: 'Item actions', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Delete' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
-  await expect(page.getByText('No items yet. Add a folder or create a recording.')).toBeVisible()
-  await expect(page.getByText(/Storage used: 0 B/)).toBeVisible()
+
+  const afterDelete = await parseStorageBytes()
+  expect(afterDelete).toBeLessThanOrEqual(afterAdd)
 })

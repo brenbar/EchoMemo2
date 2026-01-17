@@ -27,7 +27,8 @@ async function setupBrowserStubs(page: Page) {
       }
 
       start() {
-        const blob = new Blob(['test-audio'], { type: this.mimeType })
+        const payload = new Uint8Array(32 * 1024)
+        const blob = new Blob([payload], { type: this.mimeType })
         queueMicrotask(() => this.ondataavailable?.({ data: blob }))
       }
 
