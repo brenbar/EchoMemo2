@@ -62,6 +62,47 @@ async function seedLegacyDb(page: Page) {
   })
 }
 
+async function getLegacyRecordCount(page: Page): Promise<number> {
+  return page.evaluate(async () => {
+    const canListDatabases = typeof (indexedDB as any).databases === 'function'
+    const databases = canListDatabases ? await (indexedDB as any).databases() : []
+    const legacyDbExists = Array.isArray(databases)
+      ? databases.some((db: { name?: string }) => db?.name === 'EchoMemoDB')
+      : false
+
+    if (!legacyDbExists) return 0
+
+    return await new Promise<number>((resolve) => {
+      const request = indexedDB.open('EchoMemoDB')
+      request.onupgradeneeded = () => {
+        request.transaction?.abort()
+        resolve(0)
+      }
+      request.onerror = () => resolve(0)
+      request.onsuccess = () => {
+        const db = request.result
+        if (!db.objectStoreNames.contains('recordings')) {
+          db.close()
+          resolve(0)
+          return
+        }
+
+        const tx = db.transaction('recordings', 'readonly')
+        const countRequest = tx.objectStore('recordings').count()
+        countRequest.onsuccess = () => {
+          const count = countRequest.result ?? 0
+          db.close()
+          resolve(count)
+        }
+        countRequest.onerror = () => {
+          db.close()
+          resolve(0)
+        }
+      }
+    })
+  })
+}
+
 test('shows import banner and copies legacy data', async ({ page }) => {
   await seedLegacyDb(page)
   await page.goto('/')
@@ -73,6 +114,9 @@ test('shows import banner and copies legacy data', async ({ page }) => {
 
   await expect(page.getByText('Legacy Clip')).toBeVisible()
   await expect(page.getByText('Old Playlist')).toBeVisible()
+
+  const legacyCount = await getLegacyRecordCount(page)
+  expect(legacyCount).toBe(0)
 
   await page.getByRole('button', { name: 'Old Playlist' }).click()
   await expect(page).toHaveURL(/\/playlist\//)
@@ -97,12 +141,12 @@ test('does not prompt again after importing once', async ({ page }) => {
   await expect(page.getByText('Legacy Clip')).toBeVisible()
 })
 
-test('does not prompt again after dismissing', async ({ page }) => {
+test('dismiss hides temporarily but shows again until migrated', async ({ page }) => {
   await seedLegacyDb(page)
   await page.goto('/')
 
   await page.getByRole('button', { name: 'Dismiss' }).click()
 
   await page.reload()
-  await expect(page.getByText('Found data from an older EchoMemo')).toHaveCount(0)
+  await expect(page.getByText('Found data from an older EchoMemo')).toBeVisible()
 })

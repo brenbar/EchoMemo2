@@ -12,7 +12,6 @@ import { getFreeRecording } from '../sample/freeSamples'
 
 const DB_NAME = 'EchoMemoNewDB'
 const LEGACY_DB_NAME = 'EchoMemoDB'
-const LEGACY_MIGRATION_KEY = '__echoMemoLegacyMigrated'
 const STORE_NAME = 'recordings'
 const DB_VERSION = 1
 
@@ -25,24 +24,6 @@ type LegacyRecordingRecord = Partial<RecordingWithData> &
   }
 
 let dbPromise: Promise<IDBDatabase> | null = null
-
-export function hasHandledLegacyMigration(): boolean {
-  if (typeof localStorage === 'undefined') return false
-  try {
-    return localStorage.getItem(LEGACY_MIGRATION_KEY) === 'true'
-  } catch {
-    return false
-  }
-}
-
-export function markLegacyMigrationHandled(): void {
-  if (typeof localStorage === 'undefined') return
-  try {
-    localStorage.setItem(LEGACY_MIGRATION_KEY, 'true')
-  } catch {
-    // Ignore storage errors, this flag is just a UX hint.
-  }
-}
 
 function wrapRequest<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -562,9 +543,18 @@ async function readLegacyRecords(): Promise<RecordingRecord[]> {
   }
 }
 
-export async function hasLegacyData(): Promise<boolean> {
-  if (hasHandledLegacyMigration()) return false
+async function deleteLegacyDb(): Promise<void> {
+  if (typeof indexedDB === 'undefined') return
 
+  await new Promise<void>((resolve) => {
+    const deleteRequest = indexedDB.deleteDatabase(LEGACY_DB_NAME)
+    deleteRequest.onsuccess = () => resolve()
+    deleteRequest.onerror = () => resolve()
+    deleteRequest.onblocked = () => resolve()
+  })
+}
+
+export async function hasLegacyData(): Promise<boolean> {
   const legacyDb = await openLegacyDbIfPresent()
   if (!legacyDb) return false
 
@@ -609,6 +599,6 @@ export async function importLegacyData(): Promise<number> {
   }
 
   await txDone(tx)
-  markLegacyMigrationHandled()
+  await deleteLegacyDb()
   return imported
 }
