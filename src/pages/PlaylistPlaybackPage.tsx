@@ -84,7 +84,7 @@ export default function PlaylistPlaybackPage() {
     if (!player || !activeEntry) return
     ensureFillerPlaying()
     player.src = activeEntry.url
-    player.loop = activeEntry.repeats > 1
+    player.loop = false
     player.setAttribute('playsinline', 'true')
     player.preload = 'auto'
     player.currentTime = 0
@@ -135,13 +135,17 @@ export default function PlaylistPlaybackPage() {
       if (nextCount <= entry.repeats) {
         playCountRef.current = nextCount
         setPlayCount(nextCount)
-        // Keep loop enabled so the next cycle starts without calling play().
-        player.loop = true
-        stopFiller(180)
+        player.currentTime = 0
+        void player
+          .play()
+          .then(() => stopFiller(180))
+          .catch(() => {
+            setAutoPlayBlocked(true)
+            stopFiller(0)
+          })
         return
       }
 
-      player.loop = false
       player.currentTime = 0
       player.pause()
       jumpToIndex(currentIndexRef.current + 1)
