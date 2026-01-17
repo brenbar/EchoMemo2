@@ -2,15 +2,20 @@ import { test, expect, Page } from '@playwright/test'
 
 async function resetDatabases(page: Page) {
   await page.addInitScript(() => {
+    if (sessionStorage.getItem('__echoMemoResetApplied')) return
+    sessionStorage.setItem('__echoMemoResetApplied', 'true')
     indexedDB.deleteDatabase('EchoMemoDB')
     indexedDB.deleteDatabase('EchoMemoNewDB')
     localStorage.removeItem('__echoMemoDbCleared')
+    localStorage.removeItem('__echoMemoLegacyMigrated')
   })
 }
 
 async function seedLegacyDb(page: Page) {
   await resetDatabases(page)
   await page.addInitScript(() => {
+    if (sessionStorage.getItem('__echoMemoLegacySeeded')) return
+    sessionStorage.setItem('__echoMemoLegacySeeded', 'true')
     const request = indexedDB.open('EchoMemoDB', 1)
     request.onupgradeneeded = () => {
       const db = request.result
@@ -77,5 +82,27 @@ test('shows import banner and copies legacy data', async ({ page }) => {
 test('does not show banner when no legacy data exists', async ({ page }) => {
   await resetDatabases(page)
   await page.goto('/')
+  await expect(page.getByText('Found data from an older EchoMemo')).toHaveCount(0)
+})
+
+test('does not prompt again after importing once', async ({ page }) => {
+  await seedLegacyDb(page)
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Copy to new app' }).click()
+  await expect(page.getByText(/Copied .* items/)).toBeVisible()
+
+  await page.reload()
+  await expect(page.getByText('Found data from an older EchoMemo')).toHaveCount(0)
+  await expect(page.getByText('Legacy Clip')).toBeVisible()
+})
+
+test('does not prompt again after dismissing', async ({ page }) => {
+  await seedLegacyDb(page)
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Dismiss' }).click()
+
+  await page.reload()
   await expect(page.getByText('Found data from an older EchoMemo')).toHaveCount(0)
 })

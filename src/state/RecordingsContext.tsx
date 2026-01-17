@@ -15,7 +15,9 @@ import {
   getPlaylistWithData,
   updatePlaylist as persistPlaylist,
   hasLegacyData,
+  hasHandledLegacyMigration,
   importLegacyData as importLegacyFromDb,
+  markLegacyMigrationHandled,
 } from '../storage/indexedDb'
 
 type LegacyStatus = 'checking' | 'none' | 'available' | 'importing' | 'imported' | 'error'
@@ -71,6 +73,10 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
   const checkLegacy = useCallback(async () => {
     setLegacyError(null)
     try {
+      if (hasHandledLegacyMigration()) {
+        setLegacyStatus('none')
+        return
+      }
       const available = await hasLegacyData()
       setLegacyStatus(available ? 'available' : 'none')
     } catch {
@@ -203,6 +209,7 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
   }, [refresh])
 
   const dismissLegacyPrompt = useCallback(() => {
+    markLegacyMigrationHandled()
     setLegacyStatus('none')
     setLegacyError(null)
   }, [])
