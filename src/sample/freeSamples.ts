@@ -4,6 +4,7 @@ const FREE_FOLDER_ID = '_free'
 const SAMPLE_DURATION_SECONDS = 2
 const SAMPLE_RATE = 44100
 const CREATED_AT = 1
+const HOST_OVERRIDE_KEY = '__ECHO_MEMO_HOST_OVERRIDE__'
 
 const SAMPLE_DEFS = [
   { id: '__free-440', name: 'Free 440 Hz', frequency: 440 },
@@ -21,6 +22,11 @@ const freeFolder: FolderItem = {
 }
 
 let cachedRecordings: RecordingWithData[] | null = null
+let shouldIncludeCache: boolean | null = null
+
+type HostOverrideWindow = typeof window & {
+  [HOST_OVERRIDE_KEY]?: string
+}
 
 function writeString(view: DataView, offset: number, value: string) {
   for (let i = 0; i < value.length; i += 1) {
@@ -83,18 +89,50 @@ function ensureFreeRecordings(): RecordingWithData[] {
 }
 
 export function getFreeLibraryItems(): LibraryItem[] {
+  if (!shouldIncludeFreeSamples()) return []
   const recordings = ensureFreeRecordings()
   const metas = recordings.map<LibraryItem>(({ blob: _blob, ...meta }) => meta)
   return [freeFolder, ...metas]
 }
 
 export function getFreeRecording(id: string): RecordingWithData | null {
+  if (!shouldIncludeFreeSamples()) return null
   const recordings = ensureFreeRecordings()
   return recordings.find((recording) => recording.id === id) ?? null
 }
 
 export function getFreeTotalBytes(): number {
+  if (!shouldIncludeFreeSamples()) return 0
   return ensureFreeRecordings().reduce((total, rec) => total + (rec.size ?? 0), 0)
 }
 
 export { FREE_FOLDER_ID }
+
+function getCandidateHostname(): string {
+  if (typeof window === 'undefined') return ''
+  const override = (window as HostOverrideWindow)[HOST_OVERRIDE_KEY]
+  if (typeof override === 'string' && override.trim()) return override.trim()
+  return window.location.hostname ?? ''
+}
+
+function isDevHostname(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase()
+  if (!normalized) return false
+  if (normalized === 'localhost' || normalized === '::1' || normalized === '[::1]') return true
+  if (normalized.startsWith('127.')) return true
+  if (normalized.startsWith('192.168.')) return true
+
+  const ipMatch = normalized.match(/(\d{1,3}(?:\.\d{1,3}){3})/)
+  if (ipMatch) {
+    const ip = ipMatch[1]
+    return ip.startsWith('192.168.') || ip.startsWith('127.')
+  }
+
+  return false
+}
+
+export function shouldIncludeFreeSamples(): boolean {
+  if (shouldIncludeCache !== null) return shouldIncludeCache
+  shouldIncludeCache = isDevHostname(getCandidateHostname())
+  return shouldIncludeCache
+}
