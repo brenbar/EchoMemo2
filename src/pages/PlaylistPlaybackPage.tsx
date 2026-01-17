@@ -280,30 +280,6 @@ export default function PlaylistPlaybackPage() {
               )}
             </div>
           </div>
-          {playlist && (
-            <button
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-              onClick={() =>
-                navigate(`/playlist/${playlist.id}/edit`, {
-                  state: { parentId: playlist.parent ?? null, returnTo: `/playlist/${playlist.id}` },
-                })
-              }
-            >
-              <svg
-                aria-hidden
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                className="h-4 w-4"
-              >
-                <path d="M3 21h4l11-11a2.8 2.8 0 0 0-4-4L3 17v4Z" />
-                <path d="M14 6l4 4" />
-              </svg>
-              Edit playlist
-            </button>
-          )}
         </div>
 
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}

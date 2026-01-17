@@ -139,7 +139,9 @@ test('user can create a playlist from a folder and adjust repeats', async ({ pag
 test('user can edit a playlist from the dedicated editor view', async ({ page }) => {
   await createPlaylistAtRoot(page, 'Editable List', ['Track A', 'Track B'])
 
-  await page.getByRole('button', { name: 'Edit playlist' }).click()
+  await page.getByLabel('Back to list').click()
+  const playlistRow = page.locator('div[role="button"]', { hasText: 'Editable List' }).first()
+  await playlistRow.getByRole('button', { name: 'Rename' }).click()
   await expect(page).toHaveURL(/\/playlist\/.*\/edit/)
   await expect(page.getByLabel('Playlist name')).toHaveValue('Editable List')
 
@@ -147,8 +149,11 @@ test('user can edit a playlist from the dedicated editor view', async ({ page })
   await page.getByLabel('Repeats for Track B').fill('3')
   await page.getByRole('button', { name: 'Save changes' }).click()
 
-  await expect(page).toHaveURL(/\/playlist\//)
+  await expect(page).toHaveURL(/\/$/)
   await expect(page.getByText('Edited List')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Edited List' }).click()
+  await expect(page).toHaveURL(/\/playlist\//)
   await expect(page.getByText(/repeats 3/i)).toBeVisible()
 })
 
