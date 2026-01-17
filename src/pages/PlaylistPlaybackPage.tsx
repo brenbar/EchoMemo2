@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useRecordings } from '../state/RecordingsContext'
 import type { PlaylistWithData, PlaylistResolvedEntry } from '../types'
 import { formatDuration } from '../utils/format'
+import { useAudioContinuity } from '../utils/audioContinuity'
 
 type PlaylistEntryWithUrl = PlaylistResolvedEntry & { url: string }
 type PlaylistWithUrls = Omit<PlaylistWithData, 'resolved'> & { resolved: PlaylistEntryWithUrl[] }
@@ -25,6 +26,7 @@ export default function PlaylistPlaybackPage() {
   const playlistRef = useRef<PlaylistWithUrls | null>(null)
   const currentIndexRef = useRef(0)
   const playCountRef = useRef(1)
+  const { ensureFillerPlaying, stopFiller, maybePrewarm, pauseAll } = useAudioContinuity(audioRef)
 
   useEffect(() => {
     playlistRef.current = playlist
@@ -80,6 +82,7 @@ export default function PlaylistPlaybackPage() {
   useEffect(() => {
     const player = audioRef.current
     if (!player || !activeEntry) return
+    ensureFillerPlaying()
     player.src = activeEntry.url
     player.currentTime = 0
     setCurrentTime(0)
@@ -88,20 +91,30 @@ export default function PlaylistPlaybackPage() {
     playCountRef.current = 1
     player
       .play()
-      .then(() => setIsPlaying(true))
+      .then(() => {
+        stopFiller(300)
+        setIsPlaying(true)
+      })
       .catch(() => {
         setAutoPlayBlocked(true)
         setIsPlaying(false)
+        stopFiller(0)
       })
-  }, [activeEntry, currentIndex])
+  }, [activeEntry, currentIndex, ensureFillerPlaying, stopFiller])
 
   useEffect(() => {
     const player = audioRef.current
     if (!player) return undefined
 
     const handlePlay = () => setIsPlaying(true)
-    const handlePause = () => setIsPlaying(false)
-    const handleTime = () => setCurrentTime(player.currentTime)
+    const handlePause = () => {
+      setIsPlaying(false)
+      stopFiller(0)
+    }
+    const handleTime = () => {
+      setCurrentTime(player.currentTime)
+      maybePrewarm()
+    }
     const handleLoaded = () => {
       if (Number.isFinite(player.duration)) {
         setDuration(player.duration)
@@ -112,11 +125,21 @@ export default function PlaylistPlaybackPage() {
       if (!list) return
       const entry = list.resolved[currentIndexRef.current]
       if (!entry) return
+      ensureFillerPlaying()
       if (playCountRef.current < entry.repeats) {
         playCountRef.current += 1
         setPlayCount(playCountRef.current)
         player.currentTime = 0
-        void player.play().catch(() => setIsPlaying(false))
+        void player
+          .play()
+          .then(() => {
+            stopFiller(200)
+            setIsPlaying(true)
+          })
+          .catch(() => {
+            setIsPlaying(false)
+            stopFiller(0)
+          })
         return
       }
       jumpToIndex(currentIndexRef.current + 1)
@@ -135,21 +158,27 @@ export default function PlaylistPlaybackPage() {
       player.removeEventListener('loadedmetadata', handleLoaded)
       player.removeEventListener('ended', handleEnded)
     }
-  }, [])
+  }, [ensureFillerPlaying, maybePrewarm, stopFiller])
 
   const togglePlayback = () => {
     const player = audioRef.current
     if (!player) return
     if (player.paused) {
+      ensureFillerPlaying()
       player
         .play()
-        .then(() => setIsPlaying(true))
+        .then(() => {
+          stopFiller(250)
+          setIsPlaying(true)
+        })
         .catch(() => {
           setAutoPlayBlocked(true)
           setIsPlaying(false)
+          stopFiller(0)
         })
     } else {
       player.pause()
+      stopFiller(0)
     }
   }
 
@@ -158,6 +187,8 @@ export default function PlaylistPlaybackPage() {
     if (!list || list.resolved.length === 0) return
     const size = list.resolved.length
     const nextIndex = ((target % size) + size) % size
+    const player = audioRef.current
+    if (player && !player.paused) ensureFillerPlaying()
     currentIndexRef.current = nextIndex
     playCountRef.current = 1
     setPlayCount(1)
@@ -166,6 +197,8 @@ export default function PlaylistPlaybackPage() {
 
   const nextTrack = () => jumpToIndex(currentIndexRef.current + 1)
   const prevTrack = () => jumpToIndex(currentIndexRef.current - 1)
+
+  useEffect(() => () => pauseAll(), [pauseAll])
 
   return (
     <div className="grid gap-5 text-slate-900 dark:text-slate-100 lg:grid-cols-[2fr,1fr]">

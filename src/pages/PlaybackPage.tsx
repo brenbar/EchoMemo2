@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useRecordings } from '../state/RecordingsContext'
 import type { RecordingWithData } from '../types'
 import { formatDuration } from '../utils/format'
+import { useAudioContinuity } from '../utils/audioContinuity'
 
 export default function PlaybackPage() {
   const { id } = useParams<{ id: string }>()
@@ -18,6 +19,7 @@ export default function PlaybackPage() {
   const [duration, setDuration] = useState(0)
   const [isScrubbing, setIsScrubbing] = useState(false)
   const scrubRef = useRef<HTMLDivElement | null>(null)
+  const { ensureFillerPlaying, stopFiller, maybePrewarm, pauseAll } = useAudioContinuity(audioRef)
 
   useEffect(() => {
     if (!id) return undefined
@@ -44,55 +46,86 @@ export default function PlaybackPage() {
   useEffect(() => {
     if (!audioRef.current || !objectUrl) return
     audioRef.current.src = objectUrl
-    audioRef.current.loop = true
+    audioRef.current.loop = false
+    ensureFillerPlaying()
     audioRef.current
       .play()
-      .then(() => setIsPlaying(true))
+      .then(() => {
+        stopFiller(300)
+        setIsPlaying(true)
+      })
       .catch(() => {
         setAutoPlayBlocked(true)
         setIsPlaying(false)
+        stopFiller(0)
       })
-  }, [objectUrl])
+  }, [ensureFillerPlaying, objectUrl, stopFiller])
 
   useEffect(() => {
     const player = audioRef.current
     if (!player) return undefined
 
     const handlePlay = () => setIsPlaying(true)
-    const handlePause = () => setIsPlaying(false)
+    const handlePause = () => {
+      setIsPlaying(false)
+      stopFiller(0)
+    }
     const handleTime = () => {
       if (!isScrubbing) setCurrentTime(player.currentTime)
+      maybePrewarm()
     }
     const handleLoaded = () => {
       setDuration(Number.isFinite(player.duration) ? player.duration : recording?.duration ?? 0)
+    }
+    const handleEnded = () => {
+      ensureFillerPlaying()
+      player.currentTime = 0
+      void player
+        .play()
+        .then(() => {
+          stopFiller(200)
+          setIsPlaying(true)
+        })
+        .catch(() => {
+          setIsPlaying(false)
+          stopFiller(0)
+        })
     }
 
     player.addEventListener('play', handlePlay)
     player.addEventListener('pause', handlePause)
     player.addEventListener('timeupdate', handleTime)
     player.addEventListener('loadedmetadata', handleLoaded)
+    player.addEventListener('ended', handleEnded)
 
     return () => {
       player.removeEventListener('play', handlePlay)
       player.removeEventListener('pause', handlePause)
       player.removeEventListener('timeupdate', handleTime)
       player.removeEventListener('loadedmetadata', handleLoaded)
+      player.removeEventListener('ended', handleEnded)
     }
-  }, [objectUrl, recording?.duration, isScrubbing])
+  }, [ensureFillerPlaying, isScrubbing, maybePrewarm, objectUrl, recording?.duration, stopFiller])
 
   const togglePlayback = () => {
     const player = audioRef.current
     if (!player) return
     if (player.paused) {
+      ensureFillerPlaying()
       player
         .play()
-        .then(() => setIsPlaying(true))
+        .then(() => {
+          stopFiller(250)
+          setIsPlaying(true)
+        })
         .catch(() => {
           setAutoPlayBlocked(true)
           setIsPlaying(false)
+          stopFiller(0)
         })
     } else {
       player.pause()
+      stopFiller(0)
     }
   }
 
@@ -130,6 +163,8 @@ export default function PlaybackPage() {
       window.removeEventListener('pointerup', handleUp)
     }
   }, [isScrubbing, duration])
+
+  useEffect(() => () => pauseAll(), [pauseAll])
 
   return (
     <div className="grid gap-5 text-slate-900 dark:text-slate-100 lg:grid-cols-[2fr,1fr]">
