@@ -14,7 +14,11 @@ import {
   updateParent,
   getPlaylistWithData,
   updatePlaylist as persistPlaylist,
+  hasLegacyData,
+  importLegacyData as importLegacyFromDb,
 } from '../storage/indexedDb'
+
+type LegacyStatus = 'checking' | 'none' | 'available' | 'importing' | 'imported' | 'error'
 
 interface RecordingsContextValue {
   items: LibraryItem[]
@@ -38,6 +42,11 @@ interface RecordingsContextValue {
   listFolders(parentId?: string | null): Promise<LibraryItem[]>
   fetchRecording(id: string): Promise<RecordingWithData | null>
   fetchPlaylist(id: string): Promise<PlaylistWithData | null>
+  legacyStatus: LegacyStatus
+  legacyImportCount: number | null
+  legacyError: string | null
+  importLegacyData(): Promise<void>
+  dismissLegacyPrompt(): void
 }
 
 const RecordingsContext = createContext<RecordingsContextValue | undefined>(undefined)
@@ -47,6 +56,9 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
   const [totalBytes, setTotalBytes] = useState(0)
   const [loading, setLoading] = useState(true)
   const [activeParentId, setActiveParentId] = useState<string | null>(null)
+  const [legacyStatus, setLegacyStatus] = useState<LegacyStatus>('checking')
+  const [legacyImportCount, setLegacyImportCount] = useState<number | null>(null)
+  const [legacyError, setLegacyError] = useState<string | null>(null)
 
   const refresh = useCallback(async (_parentId: string | null = null) => {
     setLoading(true)
@@ -56,12 +68,26 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
     setLoading(false)
   }, [])
 
+  const checkLegacy = useCallback(async () => {
+    setLegacyError(null)
+    try {
+      const available = await hasLegacyData()
+      setLegacyStatus(available ? 'available' : 'none')
+    } catch {
+      setLegacyStatus('none')
+    }
+  }, [])
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void refresh(null)
     }, 0)
     return () => window.clearTimeout(timer)
   }, [refresh])
+
+  useEffect(() => {
+    void checkLegacy()
+  }, [checkLegacy])
 
   useEffect(() => {
     void refresh(activeParentId)
@@ -161,6 +187,26 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
   const fetchRecording = useCallback((id: string) => getRecordingWithData(id), [])
   const fetchPlaylist = useCallback((id: string) => getPlaylistWithData(id), [])
 
+  const importLegacyData = useCallback(async () => {
+    setLegacyStatus('importing')
+    setLegacyError(null)
+    try {
+      const imported = await importLegacyFromDb()
+      setLegacyImportCount(imported)
+      setLegacyStatus('imported')
+      await refresh()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to copy data from the old app'
+      setLegacyError(message)
+      setLegacyStatus('error')
+    }
+  }, [refresh])
+
+  const dismissLegacyPrompt = useCallback(() => {
+    setLegacyStatus('none')
+    setLegacyError(null)
+  }, [])
+
   const value = useMemo(
     () => ({
       items,
@@ -179,8 +225,13 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
       listFolders: listFoldersForParent,
       fetchRecording,
       fetchPlaylist,
+      legacyStatus,
+      legacyImportCount,
+      legacyError,
+      importLegacyData,
+      dismissLegacyPrompt,
     }),
-    [items, totalBytes, loading, activeParentId, refresh, setActiveParent, addRecording, addFolder, addPlaylist, updatePlaylist, removeItem, updateName, moveItem, listFoldersForParent, fetchRecording, fetchPlaylist],
+    [items, totalBytes, loading, activeParentId, refresh, setActiveParent, addRecording, addFolder, addPlaylist, updatePlaylist, removeItem, updateName, moveItem, listFoldersForParent, fetchRecording, fetchPlaylist, legacyStatus, legacyImportCount, legacyError, importLegacyData, dismissLegacyPrompt],
   )
 
   return <RecordingsContext.Provider value={value}>{children}</RecordingsContext.Provider>

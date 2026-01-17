@@ -3,6 +3,7 @@ import { test, expect, Page } from '@playwright/test'
 async function setupBrowserStubs(page: Page) {
   await page.addInitScript(() => {
     indexedDB.deleteDatabase('EchoMemoDB')
+    indexedDB.deleteDatabase('EchoMemoNewDB')
 
     class FakeMediaStreamTrack {
       stop() {}

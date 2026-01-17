@@ -4,6 +4,7 @@ async function setupBrowserStubs(page: Page) {
   await page.addInitScript(() => {
     // Always start fresh data for deterministic UI tests.
     indexedDB.deleteDatabase('EchoMemoDB')
+    indexedDB.deleteDatabase('EchoMemoNewDB')
 
     // Minimal media stubs to allow recording flow without real devices.
     class FakeMediaStreamTrack {

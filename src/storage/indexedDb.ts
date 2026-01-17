@@ -9,7 +9,8 @@ import type {
   RecordingWithData,
 } from '../types'
 
-const DB_NAME = 'EchoMemoDB'
+const DB_NAME = 'EchoMemoNewDB'
+const LEGACY_DB_NAME = 'EchoMemoDB'
 const STORE_NAME = 'recordings'
 const DB_VERSION = 1
 
@@ -62,10 +63,17 @@ function getDb(): Promise<IDBDatabase> {
   return dbPromise
 }
 
-function safeId() {
+function safeId(prefix = 'rec') {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
-    : `rec-${Date.now()}`
+    : `${prefix}-${Date.now()}`
+}
+
+function normalizeId(value: unknown, fallbackName?: string): string {
+  if (typeof value === 'string' && value.trim()) return value
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  if (typeof fallbackName === 'string' && fallbackName.trim()) return fallbackName
+  return safeId()
 }
 
 function toNumber(value: unknown): number | null {
@@ -77,11 +85,12 @@ function toNumber(value: unknown): number | null {
   return null
 }
 
-function coalesceRecord(record: LegacyRecordingRecord | RecordingRecord): RecordingRecord {
+function normalizeLegacyRecord(record: LegacyRecordingRecord): RecordingRecord {
   const legacy = record as LegacyRecordingRecord
-  const id = legacy.id ?? legacy.name ?? safeId()
+  const id = normalizeId(legacy.id ?? legacy.name, legacy.name)
   const createdAt = toNumber(legacy.createdAt) ?? Date.now()
-  const parent = typeof legacy.parent === 'string' ? legacy.parent : null
+  const parent =
+    typeof legacy.parent === 'string' || typeof legacy.parent === 'number' ? String(legacy.parent) : null
 
   const kind: LibraryItemKind = legacy.kind
     ? (legacy.kind as LibraryItemKind)
@@ -107,9 +116,12 @@ function coalesceRecord(record: LegacyRecordingRecord | RecordingRecord): Record
       ? legacy.entries
           .map((entry: PlaylistEntry | null | undefined) => {
             if (!entry || typeof entry !== 'object') return null
-            const recordingId = typeof entry.recordingId === 'string' ? entry.recordingId : null
+            const recordingIdRaw = (entry as PlaylistEntry).recordingId
+            const hasRecordingId =
+              typeof recordingIdRaw === 'string' || typeof recordingIdRaw === 'number'
+            if (!hasRecordingId) return null
+            const recordingId = normalizeId(recordingIdRaw)
             const repeats = toNumber(entry.repeats) ?? 1
-            if (!recordingId) return null
             return { recordingId, repeats: Math.max(1, repeats) }
           })
           .filter(Boolean)
@@ -199,10 +211,9 @@ export async function listAllItems(): Promise<LibraryItem[]> {
   const db = await getDb()
   const tx = db.transaction(STORE_NAME, 'readonly')
   const store = tx.objectStore(STORE_NAME)
-  const records = (await wrapRequest(store.getAll())) as LegacyRecordingRecord[]
+  const records = (await wrapRequest(store.getAll())) as RecordingRecord[]
   await txDone(tx)
-  const normalized = records.map((record) => coalesceRecord(record))
-  return normalized
+  return records
     .map<LibraryItem>((record) => {
       if (isFolderRecord(record)) return record
       if (isPlaylistRecord(record)) return record
@@ -323,23 +334,11 @@ export async function getRecordingWithData(id: string): Promise<RecordingWithDat
   const tx = db.transaction(STORE_NAME, 'readonly')
   const store = tx.objectStore(STORE_NAME)
 
-  // Old databases sometimes used numeric keys; new ones use string UUIDs. If the
-  // string id lookup misses, fall back to a numeric key so legacy entries load.
-  const candidateKeys: (string | number)[] = [id]
-  const numericId = toNumber(id)
-  if (numericId !== null) candidateKeys.push(numericId)
-
-  let record: LegacyRecordingRecord | undefined
-  for (const key of candidateKeys) {
-    record = (await wrapRequest(store.get(key))) as LegacyRecordingRecord | undefined
-    if (record) break
-  }
+  const record = (await wrapRequest(store.get(id))) as RecordingRecord | undefined
 
   await txDone(tx)
-  if (!record) return null
-  const normalized = coalesceRecord(record)
-  if (!isRecordingRecord(normalized)) return null
-  return normalized
+  if (!record || !isRecordingRecord(record)) return null
+  return record
 }
 
 export async function deleteRecording(id: string): Promise<void> {
@@ -420,17 +419,113 @@ export async function getPlaylistWithData(id: string): Promise<PlaylistWithData 
   const store = tx.objectStore(STORE_NAME)
   const record = (await wrapRequest(store.get(id))) as RecordingRecord | undefined
   await txDone(tx)
-  if (!record) return null
-  const normalized = coalesceRecord(record)
-  if (!isPlaylistRecord(normalized)) return null
+  if (!record || !isPlaylistRecord(record)) return null
 
   const resolved: PlaylistWithData['resolved'] = []
-  for (const entry of normalized.entries) {
+  for (const entry of record.entries) {
     const rec = await getRecordingWithData(entry.recordingId)
     if (rec) {
       resolved.push({ recording: rec, repeats: Math.max(1, Math.round(entry.repeats || 1)) })
     }
   }
 
-  return { ...normalized, resolved }
+  return { ...record, resolved }
+}
+
+async function openLegacyDbIfPresent(): Promise<IDBDatabase | null> {
+  if (typeof indexedDB === 'undefined') return null
+
+  const databases = (indexedDB as any).databases ? await (indexedDB as any).databases() : null
+  if (Array.isArray(databases)) {
+    const found = databases.some((db: { name?: string }) => db?.name === LEGACY_DB_NAME)
+    if (!found) return null
+  }
+
+  return new Promise((resolve) => {
+    let created = false
+    const request = indexedDB.open(LEGACY_DB_NAME)
+    request.onupgradeneeded = () => {
+      created = true
+      request.transaction?.abort()
+    }
+    request.onerror = () => resolve(null)
+    request.onblocked = () => resolve(null)
+    request.onsuccess = () => {
+      if (created) {
+        request.result.close()
+        resolve(null)
+        return
+      }
+      const db = request.result
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.close()
+        resolve(null)
+        return
+      }
+      resolve(db)
+    }
+  })
+}
+
+async function readLegacyRecords(): Promise<RecordingRecord[]> {
+  const legacyDb = await openLegacyDbIfPresent()
+  if (!legacyDb) return []
+
+  const tx = legacyDb.transaction(STORE_NAME, 'readonly')
+  const store = tx.objectStore(STORE_NAME)
+  try {
+    const records = (await wrapRequest(store.getAll())) as LegacyRecordingRecord[]
+    await txDone(tx)
+    return records.map((record) => normalizeLegacyRecord(record))
+  } finally {
+    legacyDb.close()
+  }
+}
+
+export async function hasLegacyData(): Promise<boolean> {
+  const legacyDb = await openLegacyDbIfPresent()
+  if (!legacyDb) return false
+
+  return new Promise((resolve) => {
+    const tx = legacyDb.transaction(STORE_NAME, 'readonly')
+    const store = tx.objectStore(STORE_NAME)
+    const countRequest = store.count()
+
+    countRequest.onsuccess = () => {
+      resolve((countRequest.result ?? 0) > 0)
+    }
+    countRequest.onerror = () => {
+      legacyDb.close()
+      resolve(false)
+    }
+    tx.onabort = () => {
+      legacyDb.close()
+      resolve(false)
+    }
+    tx.onerror = () => {
+      legacyDb.close()
+      resolve(false)
+    }
+    tx.oncomplete = () => legacyDb.close()
+  })
+}
+
+export async function importLegacyData(): Promise<number> {
+  const legacyRecords = await readLegacyRecords()
+  if (legacyRecords.length === 0) return 0
+
+  const db = await getDb()
+  const tx = db.transaction(STORE_NAME, 'readwrite')
+  const store = tx.objectStore(STORE_NAME)
+
+  let imported = 0
+  for (const record of legacyRecords) {
+    const existing = (await wrapRequest(store.get(record.id))) as RecordingRecord | undefined
+    if (existing) continue
+    store.put(record)
+    imported += 1
+  }
+
+  await txDone(tx)
+  return imported
 }

@@ -5,6 +5,7 @@ async function setupDefaultStubs(page: Page) {
     const cleared = localStorage.getItem('__echoMemoDbCleared')
     if (!cleared) {
       indexedDB.deleteDatabase('EchoMemoDB')
+      indexedDB.deleteDatabase('EchoMemoNewDB')
       localStorage.setItem('__echoMemoDbCleared', '1')
     }
 
@@ -85,7 +86,10 @@ async function createPlaylist(
   repeatOverrides?: Record<string, number>,
 ) {
   await page.goto('/')
-  await page.evaluate(() => indexedDB.deleteDatabase('EchoMemoDB'))
+  await page.evaluate(() => {
+    indexedDB.deleteDatabase('EchoMemoDB')
+    indexedDB.deleteDatabase('EchoMemoNewDB')
+  })
   await page.reload()
 
   for (const [idx, name] of recordingNames.entries()) {
@@ -144,6 +148,7 @@ test('install button shows iOS hint when prompt is unavailable', async ({ page }
 test('record page surfaces unsupported browser error when MediaRecorder is missing', async ({ page }) => {
   await page.addInitScript(() => {
     indexedDB.deleteDatabase('EchoMemoDB')
+    indexedDB.deleteDatabase('EchoMemoNewDB')
     // Remove MediaRecorder entirely so feature detection fails.
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
@@ -162,6 +167,7 @@ test('record page surfaces unsupported browser error when MediaRecorder is missi
 test('record page surfaces microphone failure error when getUserMedia rejects', async ({ page }) => {
   await page.addInitScript(() => {
     indexedDB.deleteDatabase('EchoMemoDB')
+    indexedDB.deleteDatabase('EchoMemoNewDB')
     class DummyRecorder {
       stream: MediaStream
       mimeType = 'audio/webm'

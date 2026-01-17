@@ -20,6 +20,11 @@ export default function ListPage() {
     addFolder,
     moveItem,
     listFolders,
+    legacyStatus,
+    legacyImportCount,
+    legacyError,
+    importLegacyData,
+    dismissLegacyPrompt,
   } = useRecordings()
   const [renameTarget, setRenameTarget] = useState<LibraryItem | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -47,6 +52,14 @@ export default function ListPage() {
   const moveButtonLabel = isSameLocation ? "Stay" : `Move to '${destinationName}'`
   const headerTitle = activeParentId ? currentFolder?.name ?? 'Folder' : 'Your library'
   const showStorageUsage = !activeParentId
+  const showLegacyBanner = ['available', 'importing', 'imported', 'error'].includes(legacyStatus)
+  const importingLegacy = legacyStatus === 'importing'
+  const importButtonLabel =
+    legacyStatus === 'error'
+      ? 'Try again'
+      : importingLegacy
+        ? 'Copying…'
+        : 'Copy to new app'
 
 
   const loadFolders = async (parentId: string | null) => {
@@ -76,6 +89,54 @@ export default function ListPage() {
 
   return (
     <div className="flex flex-col gap-5 pb-24 text-slate-900 dark:text-slate-100">
+      {showLegacyBanner && (
+        <div className="rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4 shadow-sm backdrop-blur dark:border-amber-500/40 dark:bg-amber-900/30">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-100 text-amber-800 shadow-sm dark:bg-amber-700/60 dark:text-amber-50">
+                <svg aria-hidden xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-5 w-5">
+                  <path d="M12 9v4" />
+                  <path d="M12 17h.01" />
+                  <path d="M4.93 19.07a10 10 0 1 1 14.14 0A10 10 0 0 1 4.93 19.07Z" />
+                </svg>
+              </span>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-50">Found data from an older EchoMemo</p>
+                {legacyStatus === 'imported' ? (
+                  <p className="text-sm text-amber-900 dark:text-amber-100">
+                    Copied {legacyImportCount ?? 0} item{(legacyImportCount ?? 0) === 1 ? '' : 's'} into this version.
+                  </p>
+                ) : (
+                  <p className="text-sm text-amber-900 dark:text-amber-100">
+                    Copy your previous recordings and playlists into this version so everything stays together.
+                  </p>
+                )}
+                {legacyStatus === 'error' && (
+                  <p className="text-sm text-rose-700 dark:text-rose-200">{legacyError ?? 'Copy failed. Please try again.'}</p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-start md:self-center">
+              {legacyStatus !== 'imported' && (
+                <button
+                  className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-400"
+                  disabled={importingLegacy}
+                  onClick={() => importLegacyData()}
+                >
+                  {importButtonLabel}
+                </button>
+              )}
+              <button
+                className="rounded-lg border border-amber-200 px-4 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-100 dark:border-amber-600 dark:text-amber-100 dark:hover:bg-amber-800/50"
+                onClick={dismissLegacyPrompt}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <section className="flex flex-col gap-4 rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
         <div className="grid grid-cols-3 items-center gap-3">
           <div className="flex items-center justify-start gap-2">
