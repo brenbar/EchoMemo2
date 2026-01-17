@@ -72,8 +72,6 @@ async function createRecording(page: Page, name = 'Sample script for testing') {
   // Ensure the save modal is present before proceeding.
   await page.getByLabel('Recording name').fill(name)
   await page.getByRole('button', { name: 'Save & return' }).click()
-
-  await expect(page.getByText('Your library')).toBeVisible()
   await expect(page.getByText(name)).toBeVisible()
   return name
 }

@@ -4,7 +4,6 @@ import Modal from '../components/Modal'
 import RecordingRow from '../components/RecordingRow'
 import { useRecordings } from '../state/RecordingsContext'
 import type { LibraryItem, LibraryItemKind, PlaylistMeta } from '../types'
-import { formatBytes } from '../utils/format'
 import { sortLibraryItems } from '../storage/indexedDb'
 
 export default function ListPage() {
@@ -13,7 +12,6 @@ export default function ListPage() {
   const {
     items,
     loading,
-    totalBytes,
     updateName,
     removeItem,
     setActiveParent,
@@ -55,8 +53,7 @@ export default function ListPage() {
   const isInvalidSelf = moveTarget ? moveTarget.id === (browseParent ?? null) : false
   const moveDisabled = !moveTarget || isSameLocation || isInvalidSelf
   const moveButtonLabel = isSameLocation ? "Stay" : `Move to '${destinationName}'`
-  const headerTitle = activeParentId ? currentFolder?.name ?? 'Folder' : 'Your library'
-  const showStorageUsage = !activeParentId
+  const headerTitle = activeParentId ? currentFolder?.name ?? 'Folder' : ''
   const showLegacyBanner = ['available', 'importing', 'imported', 'error'].includes(legacyStatus)
   const importingLegacy = legacyStatus === 'importing'
   const importButtonLabel =
@@ -187,36 +184,31 @@ export default function ListPage() {
         </div>
       )}
 
-      <section className="flex flex-col gap-4 rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
-        <div className="grid grid-cols-3 items-center gap-3">
-          <div className="flex items-center justify-start gap-2">
-            {activeParentId && (
-              <button
-                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                onClick={() => navigate(backTarget)}
-              >
-                <svg
-                  aria-hidden
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  className="h-4 w-4"
+        <section className="flex flex-col gap-4 rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
+          <div className="grid grid-cols-3 items-center gap-3">
+            <div className="flex items-center justify-start gap-2">
+              {activeParentId && (
+                <button
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                  onClick={() => navigate(backTarget)}
                 >
-                  <path d="M14 18l-6-6 6-6" />
-                </svg>
-                Back
-              </button>
-            )}
-          </div>
-          <div className="flex flex-col items-center text-center justify-self-center">
-            <p className="text-lg font-semibold tracking-wide text-slate-500 dark:text-slate-400">{headerTitle}</p>
-            {showStorageUsage && (
-              <p className="text-sm text-slate-600 dark:text-slate-300">Storage used: {formatBytes(totalBytes)}</p>
-            )}
-          </div>
-          <div className="flex items-center justify-end gap-2">
+                  <svg
+                    aria-hidden
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    className="h-4 w-4"
+                  >
+                    <path d="M14 18l-6-6 6-6" />
+                  </svg>
+                  {headerTitle && <span className="truncate" aria-hidden={!headerTitle}>{headerTitle}</span>}
+                </button>
+              )}
+            </div>
+            <div className="flex flex-col items-center text-center justify-self-center" />
+            <div className="flex items-center justify-end gap-2">
             <button
               className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
               onClick={() => {

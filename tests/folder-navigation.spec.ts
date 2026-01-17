@@ -78,9 +78,7 @@ test.beforeEach(async ({ page }) => {
 
 test('folder view only shows children of that folder', async ({ page }) => {
   await page.goto('/')
-
   const header = page.locator('section').first()
-  await expect(header.getByText(/Storage used/i)).toBeVisible()
 
   await page.getByRole('button', { name: 'New folder' }).click()
   await page.getByLabel('Folder name').fill('My Folder')
@@ -92,11 +90,7 @@ test('folder view only shows children of that folder', async ({ page }) => {
   const folderRow = page.locator('[role="button"]', { hasText: 'My Folder' }).first()
   await folderRow.click()
   await expect(page).toHaveURL(/\/folder\//)
-  await expect(page.getByRole('button', { name: 'Back' })).toBeVisible()
-
-  await expect(header.getByText('My Folder')).toBeVisible()
-  await expect(header.getByText(/Your library/i)).toHaveCount(0)
-  await expect(header.getByText(/Storage used/i)).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'My Folder' })).toBeVisible()
 
   await createRecordingInCurrentView(page, 'Child Clip')
 
@@ -122,7 +116,7 @@ test('nested folder appears when revisiting parent from root', async ({ page }) 
   await expect(page.getByText('Child Folder')).toBeVisible()
 
   // Go back to root, then re-enter parent.
-  await page.getByRole('button', { name: 'Back' }).click()
+  await page.getByRole('button', { name: 'Parent Folder' }).click()
   await expect(page).toHaveURL(/\/(EchoMemo3\/)?$/)
   await page.getByRole('button', { name: 'Parent Folder' }).click()
   await expect(page).toHaveURL(/\/folder\//)
@@ -152,7 +146,7 @@ test('back button goes to parent folder when inside nested folder', async ({ pag
   await expect(page).toHaveURL(/\/folder\//)
 
   // Click back; should land in parent folder view (parentUrl).
-  await page.getByRole('button', { name: 'Back' }).click()
+  await page.getByRole('button', { name: 'Child Folder' }).click()
   await expect(page).toHaveURL(parentUrl)
 
   // Child folder should be visible in the parent folder listing.

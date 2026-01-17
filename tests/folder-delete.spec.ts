@@ -95,9 +95,9 @@ test('deleting a non-empty folder requires acknowledgement and removes nested co
   await expect(page).toHaveURL(/\/folder\//)
 
   await createRecordingInCurrentView(page, 'Nested Clip')
-  await page.getByRole('button', { name: 'Back' }).click()
+  await page.getByRole('button', { name: 'Child Folder' }).click()
   await expect(page).toHaveURL(/\/folder\//)
-  await page.getByRole('button', { name: 'Back' }).click()
+  await page.getByRole('button', { name: 'Parent Folder' }).click()
   await expect(page).toHaveURL(/\/(EchoMemo3\/)?$/)
 
   const parentRow = page.locator('div[role="button"]', { hasText: 'Parent Folder' }).first()

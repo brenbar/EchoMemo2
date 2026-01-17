@@ -15,5 +15,5 @@ test('hides the free folder when host is production-like', async ({ page, contex
   await page.goto('/')
 
   await expect(page.getByRole('button', { name: '_free' })).toHaveCount(0)
-  await expect(page.getByText('Your library')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'New recording' })).toBeVisible()
 })

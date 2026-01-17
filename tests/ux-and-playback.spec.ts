@@ -308,7 +308,7 @@ test('playlist editor disables save without entries and re-disables after remova
   await page.getByRole('button', { name: 'Nest' }).click()
   await createRecording(page, 'Nested Clip', 0, { stay: true })
   await createRecording(page, 'Nested Clip 2', 0, { stay: true })
-  await page.getByRole('button', { name: 'Back' }).click()
+  await page.getByRole('button', { name: 'Nest', exact: true }).click()
 
   await page.getByRole('button', { name: 'New playlist' }).click()
   const saveButton = page.getByRole('button', { name: 'Save playlist' })
@@ -357,40 +357,7 @@ test('move modal prevents staying put and can move item to root', async ({ page 
   await expect(dialog).not.toBeVisible()
   await expect(page.getByText('Move me')).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Back' }).click()
-  await page.getByRole('button', { name: 'Back' }).click()
+  await page.getByRole('button', { name: 'Child' }).click()
+  await page.getByRole('button', { name: 'Parent' }).click()
   await expect(page.getByText('Move me')).toBeVisible()
-})
-
-test('storage used updates after adding and deleting a recording', async ({ page }) => {
-  await setupDefaultStubs(page)
-  await page.goto('/')
-
-  const parseStorageBytes = async () => {
-    const label = page.getByText(/Storage used:/)
-    await expect(label).toBeVisible()
-    const text = await label.innerText()
-    const match = text.match(/Storage used: ([0-9.]+) (B|KB|MB|GB)/)
-    if (!match) throw new Error('Unable to parse storage usage text')
-    const numeric = parseFloat(match[1])
-    const unit = match[2]
-    const unitIndex = ['B', 'KB', 'MB', 'GB'].indexOf(unit)
-    const bytes = numeric * 1024 ** Math.max(0, unitIndex)
-    if (!Number.isFinite(bytes)) throw new Error('Storage usage text did not produce a number')
-    return bytes
-  }
-
-  const initialBytes = await parseStorageBytes()
-
-  const name = await createRecording(page, 'Sized Clip')
-  const afterAdd = await parseStorageBytes()
-  expect(afterAdd).toBeGreaterThan(initialBytes)
-
-  const targetRow = page.locator('div[role="button"]', { hasText: name }).first()
-  await targetRow.getByRole('button', { name: 'Item actions', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Delete' }).click()
-  await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
-
-  const afterDelete = await parseStorageBytes()
-  expect(afterDelete).toBeLessThanOrEqual(afterAdd)
 })
