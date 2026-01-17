@@ -151,6 +151,40 @@ test('user can edit a playlist from the dedicated editor view', async ({ page })
   await expect(page.getByText(/repeats 3/i)).toBeVisible()
 })
 
+test('user can edit a playlist from the list row and return to its folder', async ({ page }) => {
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'New folder' }).click()
+  await page.getByLabel('Folder name').fill('Study Pack')
+  await page.getByRole('button', { name: 'Create' }).click()
+  await page.getByRole('button', { name: 'Study Pack' }).click()
+  await expect(page).toHaveURL(/\/folder\//)
+
+  await createRecordingInCurrentView(page, 'Snippet One')
+
+  await page.getByRole('button', { name: 'New playlist' }).click()
+  await page.getByLabel('Playlist name').fill('Folder Playlist')
+  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByLabel('Snippet One').check()
+  await page.getByRole('button', { name: 'Add selected' }).click()
+  await page.getByRole('button', { name: 'Save playlist' }).click()
+
+  await expect(page).toHaveURL(/\/folder\//)
+  await expect(page.getByText('Folder Playlist')).toBeVisible()
+
+  const playlistRow = page.locator('div[role="button"]', { hasText: 'Folder Playlist' }).first()
+  await playlistRow.getByRole('button', { name: 'Rename' }).click()
+
+  await expect(page).toHaveURL(/\/playlist\/.*\/edit/)
+  await expect(page.getByLabel('Playlist name')).toHaveValue('Folder Playlist')
+
+  await page.getByLabel('Playlist name').fill('Folder Playlist Edited')
+  await page.getByRole('button', { name: 'Save changes' }).click()
+
+  await expect(page).toHaveURL(/\/folder\//)
+  await expect(page.getByText('Folder Playlist Edited')).toBeVisible()
+})
+
 test('playlist playback jumps between tracks with next/previous', async ({ page }) => {
   await createPlaylistAtRoot(page, 'Jump Test', ['Clip A', 'Clip B'])
 
