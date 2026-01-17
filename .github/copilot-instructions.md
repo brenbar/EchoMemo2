@@ -4,3 +4,4 @@
     - Build the project: `npm run build`
     - Run all unit tests: `npm run test:e2e -- --project=chromium`
 - If any failures are detected, investigate and fix the issues.
+    - For test failures, be sure to read the failed test code for context. You are permitted to change a test if it is relying on an implementation detail that you changed, but if you do this, highlight this in your response.
