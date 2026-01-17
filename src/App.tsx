@@ -1,8 +1,37 @@
+import { useEffect, useState } from 'react'
 import { Route, Routes } from 'react-router-dom'
 import InstallPwaButton from './components/InstallPwaButton.tsx'
 import ListPage from './pages/ListPage.tsx'
 import PlaybackPage from './pages/PlaybackPage.tsx'
 import RecordPage from './pages/RecordPage.tsx'
+
+function useIsPwaInstalled() {
+  const [isInstalled, setIsInstalled] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const nav = window.navigator as Navigator & { standalone?: boolean }
+    const media = window.matchMedia('(display-mode: standalone)')
+
+    const updateInstalled = () => {
+      const standalone = media.matches || nav.standalone === true
+      setIsInstalled(standalone)
+    }
+
+    updateInstalled()
+
+    media.addEventListener?.('change', updateInstalled)
+    window.addEventListener('appinstalled', updateInstalled)
+
+    return () => {
+      media.removeEventListener?.('change', updateInstalled)
+      window.removeEventListener('appinstalled', updateInstalled)
+    }
+  }, [])
+
+  return isInstalled
+}
 
 function Header() {
   return (
@@ -24,9 +53,11 @@ function Header() {
 }
 
 export default function App() {
+  const isInstalled = useIsPwaInstalled()
+
   return (
     <div className="min-h-screen">
-      <Header />
+      {!isInstalled && <Header />}
       <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 pb-12 pt-6">
         <Routes>
           <Route path="/" element={<ListPage />} />
