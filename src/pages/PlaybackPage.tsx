@@ -47,7 +47,7 @@ export default function PlaybackPage() {
     if (!audioRef.current || !objectUrl) return
     audioRef.current.src = objectUrl
     audioRef.current.loop = true
-    audioRef.current.playsInline = true
+    audioRef.current.setAttribute('playsinline', 'true')
     audioRef.current.preload = 'auto'
     ensureFillerPlaying()
     audioRef.current

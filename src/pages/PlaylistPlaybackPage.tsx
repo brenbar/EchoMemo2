@@ -85,7 +85,7 @@ export default function PlaylistPlaybackPage() {
     ensureFillerPlaying()
     player.src = activeEntry.url
     player.loop = activeEntry.repeats > 1
-    player.playsInline = true
+    player.setAttribute('playsinline', 'true')
     player.preload = 'auto'
     player.currentTime = 0
     setCurrentTime(0)
