@@ -117,9 +117,19 @@ export default function PlaylistEditorPage() {
     setSelectOpen(false)
   }
 
+  const clampRepeats = (value: number) => Math.max(1, Math.min(99, Math.round(value || 1)))
+
   const updateRepeats = (recordingId: string, repeats: number) => {
     setEntries((prev) =>
-      prev.map((entry) => (entry.recordingId === recordingId ? { ...entry, repeats: Math.max(1, repeats) } : entry)),
+      prev.map((entry) => (entry.recordingId === recordingId ? { ...entry, repeats: clampRepeats(repeats) } : entry)),
+    )
+  }
+
+  const nudgeRepeats = (recordingId: string, delta: number) => {
+    setEntries((prev) =>
+      prev.map((entry) =>
+        entry.recordingId === recordingId ? { ...entry, repeats: clampRepeats(entry.repeats + delta) } : entry,
+      ),
     )
   }
   const removeEntry = (recordingId: string) => setEntries((prev) => prev.filter((entry) => entry.recordingId !== recordingId))
@@ -130,7 +140,7 @@ export default function PlaylistEditorPage() {
     if (!canSave) return
     const payload = readyEntries.map((entry) => ({
       recordingId: entry.recordingId,
-      repeats: Math.max(1, Math.round(entry.repeats || 1)),
+      repeats: clampRepeats(entry.repeats),
     }))
     if (isEditMode && playlistId) {
       const updated = await updatePlaylist({ id: playlistId, name: name.trim(), entries: payload, parent: parentId })
@@ -203,11 +213,7 @@ export default function PlaylistEditorPage() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">Recordings</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Select recordings to include and set repeats.</p>
-              </div>
+            <div className="flex items-center">
               <button
                 className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-400 dark:disabled:bg-slate-700"
                 disabled={loadingExisting}
@@ -239,16 +245,40 @@ export default function PlaylistEditorPage() {
                         <label className="text-xs font-semibold text-slate-700 dark:text-slate-200" htmlFor={`repeat-${entry.recordingId}`}>
                           Repeats
                         </label>
-                        <input
-                          id={`repeat-${entry.recordingId}`}
-                          aria-label={`Repeats for ${entry.recording.name}`}
-                          type="number"
-                          min={1}
-                          className="w-20 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          value={entry.repeats}
-                          disabled={loadingExisting}
-                          onChange={(e) => updateRepeats(entry.recordingId, Number(e.target.value) || 1)}
-                        />
+                        <div className="flex items-center gap-2 rounded-lg bg-white px-2 py-1 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                          <button
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                            type="button"
+                            disabled={loadingExisting || entry.repeats <= 1}
+                            onClick={() => nudgeRepeats(entry.recordingId, -1)}
+                            aria-label={`Decrease repeats for ${entry.recording.name}`}
+                          >
+                            –
+                          </button>
+                          <input
+                            id={`repeat-${entry.recordingId}`}
+                            aria-label={`Repeats for ${entry.recording.name}`}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            type="text"
+                            className="w-12 rounded-md border border-slate-200 px-2 py-2 text-center text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            value={entry.repeats}
+                            disabled={loadingExisting}
+                            onChange={(e) => {
+                              const next = clampRepeats(Number(e.target.value.replace(/[^0-9]/g, '')) || 0)
+                              updateRepeats(entry.recordingId, next)
+                            }}
+                          />
+                          <button
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                            type="button"
+                            disabled={loadingExisting}
+                            onClick={() => nudgeRepeats(entry.recordingId, 1)}
+                            aria-label={`Increase repeats for ${entry.recording.name}`}
+                          >
+                            +
+                          </button>
+                        </div>
                         <button
                           className="rounded-full bg-rose-100 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-rose-900/40 dark:text-rose-100 dark:hover:bg-rose-900/60"
                           disabled={loadingExisting}

@@ -87,7 +87,7 @@ async function createPlaylistAtRoot(page: Page, playlistName: string, recordingN
   }
   await page.getByRole('button', { name: 'Add selected' }).click()
   for (const [name, repeats] of Object.entries(repeatOverrides)) {
-    await page.getByLabel(`Repeats for ${name}`).fill(String(repeats))
+    await page.getByRole('textbox', { name: `Repeats for ${name}` }).fill(String(repeats))
   }
   await page.getByRole('button', { name: 'Save playlist' }).click()
 
@@ -125,7 +125,7 @@ test('user can create a playlist from a folder and adjust repeats', async ({ pag
   await expect(page.getByText('Clip One')).toBeVisible()
   await expect(page.getByText('Clip Two')).toBeVisible()
 
-  await page.getByLabel('Repeats for Clip One').fill('2')
+  await page.getByRole('textbox', { name: 'Repeats for Clip One' }).fill('2')
 
   await page.getByRole('button', { name: 'Save playlist' }).click()
   await expect(page).toHaveURL(/\/folder\//)
@@ -147,7 +147,7 @@ test('user can edit a playlist from the dedicated editor view', async ({ page })
   await expect(page.getByLabel('Playlist name')).toHaveValue('Editable List')
 
   await page.getByLabel('Playlist name').fill('Edited List')
-  await page.getByLabel('Repeats for Track B').fill('3')
+  await page.getByRole('textbox', { name: 'Repeats for Track B' }).fill('3')
   await page.getByRole('button', { name: 'Save changes' }).click()
 
   await expect(page).toHaveURL(/\/$/)

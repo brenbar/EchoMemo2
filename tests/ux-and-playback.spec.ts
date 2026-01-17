@@ -107,7 +107,7 @@ async function createPlaylist(
 
   if (repeatOverrides) {
     for (const [name, repeats] of Object.entries(repeatOverrides)) {
-      const input = page.getByLabel(`Repeats for ${name}`)
+      const input = page.getByRole('textbox', { name: `Repeats for ${name}` })
       if (await input.count()) {
         await input.fill(String(repeats))
       }
