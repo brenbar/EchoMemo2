@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useRecordings } from '../state/RecordingsContext'
 import type { RecordingWithData } from '../types'
 import { formatDuration } from '../utils/format'
+import { useAudioContinuity } from '../utils/audioContinuity'
 
 export default function PlaybackPage() {
   const { id } = useParams<{ id: string }>()
@@ -19,6 +20,7 @@ export default function PlaybackPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const scrubRef = useRef<HTMLDivElement | null>(null)
   const isScrubbingRef = useRef(false)
+  const { ensureFillerPlaying, stopFiller, pauseAll } = useAudioContinuity(audioRef)
 
   // Web Audio primitives for seamless looping without filler tracks.
   const audioCtxRef = useRef<AudioContext | null>(null)
@@ -30,6 +32,7 @@ export default function PlaybackPage() {
 
   function stopAll() {
     pauseSource()
+    pauseAll()
     if (audioCtxRef.current) {
       audioCtxRef.current.close().catch(() => {})
       audioCtxRef.current = null
@@ -48,8 +51,7 @@ export default function PlaybackPage() {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     rafRef.current = null
     setIsPlaying(false)
-    if (audioRef.current) audioRef.current.pause()
-    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'
+    stopFiller(150)
   }
 
   function startSource(offset = 0) {
@@ -65,6 +67,7 @@ export default function PlaybackPage() {
     if (!bufferRef.current) return
     try {
       void ctx.resume()
+      ensureFillerPlaying()
       const src = ctx.createBufferSource()
       const bufDur = bufferRef.current.duration || 0
       const startOffset = bufDur ? Math.max(0, Math.min(offset, bufDur)) : offset
@@ -75,16 +78,11 @@ export default function PlaybackPage() {
       sourceRef.current = src
       src.start(0, startOffset)
       if (audioRef.current) audioRef.current.currentTime = startOffset
-      if (audioRef.current) {
-        audioRef.current.muted = true
-        audioRef.current.loop = true
-        void audioRef.current.play().catch(() => {})
-      }
       setIsPlaying(true)
-      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'
       tick()
     } catch {
       setAutoPlayBlocked(true)
+      stopFiller(0)
     }
   }
 
@@ -96,13 +94,6 @@ export default function PlaybackPage() {
     const position = ((elapsed % buf.duration) + buf.duration) % buf.duration
     if (!isScrubbingRef.current) setCurrentTime(position)
     if (audioRef.current) audioRef.current.currentTime = position
-    if ('mediaSession' in navigator && duration) {
-      try {
-        navigator.mediaSession.setPositionState({ duration: duration || buf.duration || 0, playbackRate: 1, position })
-      } catch {
-        // setPositionState not supported in all browsers
-      }
-    }
     rafRef.current = requestAnimationFrame(tick)
   }
 
@@ -127,30 +118,6 @@ export default function PlaybackPage() {
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
   }, [objectUrl])
-
-  useEffect(() => {
-    if (!('mediaSession' in navigator)) return
-    const ms = navigator.mediaSession
-    const metadata = recording
-      ? new MediaMetadata({
-          title: recording.name,
-          artist: recording.scriptText ? recording.scriptText.slice(0, 80) : 'Memo',
-        })
-      : null
-    if (metadata) ms.metadata = metadata
-
-    const handlePlay = () => startSource(offsetRef.current)
-    const handlePause = () => pauseSource()
-    ms.setActionHandler('play', handlePlay)
-    ms.setActionHandler('pause', handlePause)
-    ms.setActionHandler('stop', handlePause)
-
-    return () => {
-      ms.setActionHandler('play', null)
-      ms.setActionHandler('pause', null)
-      ms.setActionHandler('stop', null)
-    }
-  }, [recording])
 
   useEffect(() => {
     isScrubbingRef.current = isScrubbing
