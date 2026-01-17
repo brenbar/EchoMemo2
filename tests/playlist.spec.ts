@@ -175,6 +175,24 @@ test('user can edit a playlist from the dedicated editor view', async ({ page })
   await expect(page.getByText(/repeats 3/i)).toBeVisible()
 })
 
+test('playlist repeat controls respond to mouse clicks', async ({ page }) => {
+  await createPlaylistAtRoot(page, 'Mouse Adjust', ['Mouse Track A', 'Mouse Track B'])
+
+  await page.getByLabel('Back to list').click()
+  const playlistRow = page.locator('div[role="button"]', { hasText: 'Mouse Adjust' }).first()
+  await playlistRow.getByRole('button', { name: 'Item actions', exact: true }).click()
+  await playlistRow.getByRole('menuitem', { name: 'Edit' }).click()
+
+  const repeatsInput = page.getByRole('textbox', { name: 'Repeats for Mouse Track A' })
+  await expect(repeatsInput).toHaveValue('1')
+
+  await page.getByRole('button', { name: 'Increase repeats for Mouse Track A' }).click()
+  await expect(repeatsInput).toHaveValue('2')
+
+  await page.getByRole('button', { name: 'Decrease repeats for Mouse Track A' }).click()
+  await expect(repeatsInput).toHaveValue('1')
+})
+
 test('new playlist requires at least two recordings', async ({ page }) => {
   await page.goto('/')
 

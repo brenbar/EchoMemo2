@@ -193,6 +193,8 @@ export default function PlaylistEditorPage() {
 
   const handlePointerStart = (id: string) => (event: React.PointerEvent) => {
     if (event.pointerType === 'mouse' && event.buttons !== 1) return
+    const target = event.target as HTMLElement | null
+    if (target?.closest('button, input, select, textarea')) return
     event.currentTarget.setPointerCapture?.(event.pointerId)
     setSwipeState({ id, startX: event.clientX, translate: 0 })
   }
