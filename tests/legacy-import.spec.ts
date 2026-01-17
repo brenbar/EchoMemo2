@@ -103,14 +103,10 @@ async function getLegacyRecordCount(page: Page): Promise<number> {
   })
 }
 
-test('shows import banner and copies legacy data', async ({ page }) => {
+test('automatically imports legacy data on load', async ({ page }) => {
   await seedLegacyDb(page)
   await page.goto('/')
-
-  await expect(page.getByText('Found data from an older EchoMemo')).toBeVisible()
-
-  await page.getByRole('button', { name: 'Copy to new app' }).click()
-  await expect(page.getByText(/Copied .* items/)).toBeVisible()
+  await expect(page.getByText('Found data from an older EchoMemo')).toHaveCount(0)
 
   await expect(page.getByText('Legacy Clip')).toBeVisible()
   await expect(page.getByText('Old Playlist')).toBeVisible()
@@ -123,30 +119,23 @@ test('shows import banner and copies legacy data', async ({ page }) => {
   await expect(page.getByText('Legacy Clip')).toBeVisible()
 })
 
-test('does not show banner when no legacy data exists', async ({ page }) => {
-  await resetDatabases(page)
-  await page.goto('/')
-  await expect(page.getByText('Found data from an older EchoMemo')).toHaveCount(0)
-})
-
-test('does not prompt again after importing once', async ({ page }) => {
+test('does not reimport or prompt on reload', async ({ page }) => {
   await seedLegacyDb(page)
   await page.goto('/')
 
-  await page.getByRole('button', { name: 'Copy to new app' }).click()
-  await expect(page.getByText(/Copied .* items/)).toBeVisible()
-
+  await expect(page.getByText('Legacy Clip')).toBeVisible()
   await page.reload()
+
   await expect(page.getByText('Found data from an older EchoMemo')).toHaveCount(0)
   await expect(page.getByText('Legacy Clip')).toBeVisible()
+
+  const legacyCount = await getLegacyRecordCount(page)
+  expect(legacyCount).toBe(0)
 })
 
-test('dismiss hides temporarily but shows again until migrated', async ({ page }) => {
-  await seedLegacyDb(page)
+test('ignores migration flow when no legacy data exists', async ({ page }) => {
+  await resetDatabases(page)
   await page.goto('/')
 
-  await page.getByRole('button', { name: 'Dismiss' }).click()
-
-  await page.reload()
-  await expect(page.getByText('Found data from an older EchoMemo')).toBeVisible()
+  await expect(page.getByText('Found data from an older EchoMemo')).toHaveCount(0)
 })
