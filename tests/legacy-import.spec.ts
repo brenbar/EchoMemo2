@@ -13,6 +13,10 @@ async function resetDatabases(page: Page) {
 
 async function seedLegacyDb(page: Page) {
   await resetDatabases(page)
+  await seedLegacyDbNoReset(page)
+}
+
+async function seedLegacyDbNoReset(page: Page) {
   await page.addInitScript(() => {
     if (sessionStorage.getItem('__echoMemoLegacySeeded')) return
     sessionStorage.setItem('__echoMemoLegacySeeded', 'true')
@@ -54,6 +58,43 @@ async function seedLegacyDb(page: Page) {
         createdAt: Date.now() - 15_000,
         isPlaylist: true,
         entries: [{ recordingId: 101, repeats: '2' }],
+        parent: null,
+      })
+
+      tx.oncomplete = () => db.close()
+    }
+  })
+}
+
+async function seedCurrentDbWithCollision(page: Page) {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('__echoMemoNewSeeded')) return
+    sessionStorage.setItem('__echoMemoNewSeeded', 'true')
+
+    const request = indexedDB.open('EchoMemoNewDB', 1)
+    request.onupgradeneeded = () => {
+      const db = request.result
+      if (!db.objectStoreNames.contains('recordings')) {
+        db.createObjectStore('recordings', { keyPath: 'id' })
+      }
+    }
+
+    request.onsuccess = () => {
+      const db = request.result
+      const tx = db.transaction('recordings', 'readwrite')
+      const store = tx.objectStore('recordings')
+
+      store.put({
+        id: 101,
+        name: 'Existing Clip',
+        createdAt: Date.now() - 5_000,
+        duration: 800,
+        size: 8,
+        scriptText: 'Existing script',
+        blob: new Blob(['existing'], { type: 'audio/webm' }),
+        kind: 'recording',
+        isFolder: false,
+        isPlaylist: false,
         parent: null,
       })
 
@@ -127,6 +168,25 @@ test('does not reimport or prompt on reload', async ({ page }) => {
   await page.reload()
 
   await expect(page.getByText('Found data from an older EchoMemo')).toHaveCount(0)
+  await expect(page.getByText('Legacy Clip')).toBeVisible()
+
+  const legacyCount = await getLegacyRecordCount(page)
+  expect(legacyCount).toBe(0)
+})
+
+test('imports legacy data even when ids collide', async ({ page }) => {
+  await resetDatabases(page)
+  await seedCurrentDbWithCollision(page)
+  await seedLegacyDbNoReset(page)
+
+  await page.goto('/')
+
+  await expect(page.getByText('Existing Clip')).toBeVisible()
+  await expect(page.getByText('Legacy Clip')).toBeVisible()
+  await expect(page.getByText('Old Playlist')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Old Playlist' }).click()
+  await expect(page).toHaveURL(/\/playlist\//)
   await expect(page.getByText('Legacy Clip')).toBeVisible()
 
   const legacyCount = await getLegacyRecordCount(page)

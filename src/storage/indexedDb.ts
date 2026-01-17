@@ -617,10 +617,56 @@ export async function importLegacyData(): Promise<number> {
   const tx = db.transaction(STORE_NAME, 'readwrite')
   const store = tx.objectStore(STORE_NAME)
 
-  let imported = 0
+  const existingRecords = (await wrapRequest(store.getAll())) as RecordingRecord[]
+  const existingIds = new Set(existingRecords.map((record) => record.id))
+
+  const remappedIds = new Map<string, string>()
+  const resolveId = (id: string | null | undefined): string | null => {
+    if (id === null || id === undefined) return null
+    return remappedIds.get(id) ?? id
+  }
+
+  const allocateId = (originalId: string): string => {
+    if (!existingIds.has(originalId)) {
+      existingIds.add(originalId)
+      return originalId
+    }
+
+    let candidate: string
+    do {
+      candidate = safeId('legacy')
+    } while (existingIds.has(candidate))
+
+    remappedIds.set(originalId, candidate)
+    existingIds.add(candidate)
+    return candidate
+  }
+
+  // First pass: ensure every legacy record has a unique id in the new DB
   for (const record of legacyRecords) {
-    const existing = (await wrapRequest(store.get(record.id))) as RecordingRecord | undefined
-    if (existing) continue
+    record.id = allocateId(record.id)
+  }
+
+  // Second pass: rewrite parents and playlist entry ids to point at remapped ids
+  const normalizedRecords = legacyRecords.map((record) => {
+    const updated: RecordingRecord = { ...record }
+
+    if ('parent' in updated) {
+      updated.parent = resolveId((record as FolderItem).parent)
+    }
+
+    if (isPlaylistRecord(updated)) {
+      updated.entries = updated.entries.map((entry) => ({
+        recordingId: resolveId(entry.recordingId) ?? entry.recordingId,
+        repeats: Math.max(1, Math.round(entry.repeats || 1)),
+      }))
+    }
+
+    return updated
+  })
+
+  let imported = 0
+  for (const record of normalizedRecords) {
     store.put(record)
     imported += 1
   }
