@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useRecordings } from '../state/RecordingsContext'
 import type { RecordingWithData } from '../types'
 import { formatDuration } from '../utils/format'
-import { useAudioContinuity } from '../utils/audioContinuity'
 
 export default function PlaybackPage() {
   const { id } = useParams<{ id: string }>()
@@ -12,14 +11,85 @@ export default function PlaybackPage() {
   const [recording, setRecording] = useState<RecordingWithData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [autoPlayBlocked, setAutoPlayBlocked] = useState(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [isScrubbing, setIsScrubbing] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
   const scrubRef = useRef<HTMLDivElement | null>(null)
-  const { ensureFillerPlaying, stopFiller, maybePrewarm, pauseAll } = useAudioContinuity(audioRef)
+  const isScrubbingRef = useRef(false)
+
+  // Web Audio primitives for seamless looping without filler tracks.
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const bufferRef = useRef<AudioBuffer | null>(null)
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null)
+  const startAtRef = useRef(0)
+  const offsetRef = useRef(0)
+  const rafRef = useRef<number | null>(null)
+
+  function stopAll() {
+    pauseSource()
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {})
+      audioCtxRef.current = null
+    }
+  }
+
+  function pauseSource() {
+    const ctx = audioCtxRef.current
+    const src = sourceRef.current
+    if (!ctx || !src) return
+    const dur = bufferRef.current?.duration ?? 0
+    const elapsed = ctx.currentTime - startAtRef.current
+    offsetRef.current = dur ? (elapsed % dur) : 0
+    src.stop()
+    sourceRef.current = null
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    rafRef.current = null
+    setIsPlaying(false)
+  }
+
+  function startSource(offset = 0) {
+    const Ctor = (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext) as
+      | typeof AudioContext
+      | undefined
+    if (!Ctor) {
+      setAutoPlayBlocked(true)
+      return
+    }
+    const ctx = audioCtxRef.current ?? new Ctor()
+    audioCtxRef.current = ctx
+    if (!bufferRef.current) return
+    try {
+      void ctx.resume()
+      const src = ctx.createBufferSource()
+      const bufDur = bufferRef.current.duration || 0
+      const startOffset = bufDur ? Math.max(0, Math.min(offset, bufDur)) : offset
+      src.buffer = bufferRef.current
+      src.loop = true
+      src.connect(ctx.destination)
+      startAtRef.current = ctx.currentTime - startOffset
+      sourceRef.current = src
+      src.start(0, startOffset)
+      if (audioRef.current) audioRef.current.currentTime = startOffset
+      setIsPlaying(true)
+      tick()
+    } catch {
+      setAutoPlayBlocked(true)
+    }
+  }
+
+  function tick() {
+    const ctx = audioCtxRef.current
+    const buf = bufferRef.current
+    if (!ctx || !buf || !sourceRef.current) return
+    const elapsed = ctx.currentTime - startAtRef.current
+    const position = ((elapsed % buf.duration) + buf.duration) % buf.duration
+    if (!isScrubbingRef.current) setCurrentTime(position)
+    if (audioRef.current) audioRef.current.currentTime = position
+    rafRef.current = requestAnimationFrame(tick)
+  }
 
   useEffect(() => {
     if (!id) return undefined
@@ -44,98 +114,97 @@ export default function PlaybackPage() {
   }, [objectUrl])
 
   useEffect(() => {
-    if (!audioRef.current || !objectUrl) return
-    audioRef.current.src = objectUrl
-    audioRef.current.loop = true
-    audioRef.current.setAttribute('playsinline', 'true')
-    audioRef.current.preload = 'auto'
-    ensureFillerPlaying()
-    audioRef.current
-      .play()
-      .then(() => {
-        stopFiller(300)
-        setIsPlaying(true)
-      })
-      .catch(() => {
-        setAutoPlayBlocked(true)
-        setIsPlaying(false)
-        stopFiller(0)
-      })
-  }, [ensureFillerPlaying, objectUrl, stopFiller])
+    isScrubbingRef.current = isScrubbing
+  }, [isScrubbing])
 
   useEffect(() => {
-    const player = audioRef.current
-    if (!player) return undefined
+    if (!objectUrl) return
 
-    const handlePlay = () => setIsPlaying(true)
-    const handlePause = () => {
-      setIsPlaying(false)
-      stopFiller(0)
-    }
-    const handleTime = () => {
-      if (!isScrubbing) setCurrentTime(player.currentTime)
-      maybePrewarm()
-    }
-    const handleLoaded = () => {
-      setDuration(Number.isFinite(player.duration) ? player.duration : recording?.duration ?? 0)
-    }
-    const handleEnded = () => {
-      ensureFillerPlaying()
-      player.currentTime = 0
-      stopFiller(200)
-      setIsPlaying(true)
+    let cancelled = false
+
+    if (audioRef.current) {
+      audioRef.current.src = objectUrl
+      audioRef.current.loop = true
+      audioRef.current.load()
     }
 
-    player.addEventListener('play', handlePlay)
-    player.addEventListener('pause', handlePause)
-    player.addEventListener('timeupdate', handleTime)
-    player.addEventListener('loadedmetadata', handleLoaded)
-    player.addEventListener('ended', handleEnded)
+    const ensureContext = () => {
+      if (audioCtxRef.current) return audioCtxRef.current
+      const Ctor = (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext) as
+        | typeof AudioContext
+        | undefined
+      if (!Ctor) throw new Error('Web Audio unavailable')
+      const ctx = new Ctor()
+      audioCtxRef.current = ctx
+      return ctx
+    }
+
+    const loadAndPlay = async () => {
+      try {
+        const ctx = ensureContext()
+        const response = await fetch(objectUrl)
+        const arrayBuffer = await response.arrayBuffer()
+        const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0))
+        if (cancelled) return
+        bufferRef.current = decoded
+        setDuration(decoded.duration)
+        offsetRef.current = 0
+        setCurrentTime(0)
+        await ctx.resume()
+        startSource(offsetRef.current)
+      } catch {
+        if (!cancelled) setAutoPlayBlocked(true)
+      }
+    }
+
+    loadAndPlay()
 
     return () => {
-      player.removeEventListener('play', handlePlay)
-      player.removeEventListener('pause', handlePause)
-      player.removeEventListener('timeupdate', handleTime)
-      player.removeEventListener('loadedmetadata', handleLoaded)
-      player.removeEventListener('ended', handleEnded)
+      cancelled = true
     }
-  }, [ensureFillerPlaying, isScrubbing, maybePrewarm, objectUrl, recording?.duration, stopFiller])
+  }, [objectUrl])
+
+  useEffect(() => {
+    const el = audioRef.current
+    if (!el) return
+    const handleEnded = () => {
+      offsetRef.current = 0
+      if (audioRef.current) audioRef.current.currentTime = 0
+      setCurrentTime(0)
+      startSource(0)
+    }
+    el.addEventListener('ended', handleEnded)
+    return () => el.removeEventListener('ended', handleEnded)
+  }, [objectUrl])
+  useEffect(() => {
+    return () => stopAll()
+  }, [])
 
   const togglePlayback = () => {
-    const player = audioRef.current
-    if (!player) return
-    if (player.paused) {
-      ensureFillerPlaying()
-      player
-        .play()
-        .then(() => {
-          stopFiller(250)
-          setIsPlaying(true)
-        })
-        .catch(() => {
-          setAutoPlayBlocked(true)
-          setIsPlaying(false)
-          stopFiller(0)
-        })
+    if (isPlaying) {
+      pauseSource()
     } else {
-      player.pause()
-      stopFiller(0)
+      startSource(offsetRef.current)
     }
   }
 
   const seekFromClientX = (clientX: number) => {
     const bar = scrubRef.current
-    if (!bar || !duration) return null
+    const effectiveDuration = duration || audioRef.current?.duration || recording?.duration || 0
+    if (!bar || !effectiveDuration) return null
     const rect = bar.getBoundingClientRect()
     const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
-    return ratio * duration
+    return ratio * effectiveDuration
   }
 
   const commitSeek = (time: number | null) => {
-    const player = audioRef.current
-    if (!player || time === null) return
-    player.currentTime = time
-    setCurrentTime(time)
+    if (time === null) return
+    const bufDur = bufferRef.current?.duration ?? 0
+    const normalized = bufDur ? ((time % bufDur) + bufDur) % bufDur : time
+    offsetRef.current = normalized
+    setCurrentTime(normalized)
+    if (audioRef.current) audioRef.current.currentTime = normalized
+    if (isPlaying) startSource(normalized)
   }
 
   useEffect(() => {
@@ -158,7 +227,8 @@ export default function PlaybackPage() {
     }
   }, [isScrubbing, duration])
 
-  useEffect(() => () => pauseAll(), [pauseAll])
+  // Stop and clean up on unmount
+  useEffect(() => () => stopAll(), [])
 
   return (
     <div className="grid gap-5 text-slate-900 dark:text-slate-100 lg:grid-cols-[2fr,1fr]">
@@ -180,7 +250,12 @@ export default function PlaybackPage() {
         </div>
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
         <div className="pt-4 mt-5 flex flex-col gap-3">
-          <audio ref={audioRef} className="hidden" />
+          <audio ref={audioRef} className="hidden" onEnded={() => {
+            offsetRef.current = 0
+            if (audioRef.current) audioRef.current.currentTime = 0
+            setCurrentTime(0)
+            startSource(0)
+          }} />
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
               <button
@@ -204,9 +279,17 @@ export default function PlaybackPage() {
                   ref={scrubRef}
                   className="relative h-4 cursor-pointer rounded-full bg-slate-200/90 shadow-inner transition hover:bg-slate-200 dark:bg-slate-700"
                   onPointerDown={(event) => {
-                    if (!duration) return
+                    const effectiveDuration = duration || audioRef.current?.duration || recording?.duration || 0
+                    if (!effectiveDuration) return
                     const time = seekFromClientX(event.clientX)
                     setIsScrubbing(true)
+                    if (time !== null) {
+                      setCurrentTime(time)
+                      commitSeek(time)
+                    }
+                  }}
+                  onClick={(event) => {
+                    const time = seekFromClientX(event.clientX)
                     if (time !== null) {
                       setCurrentTime(time)
                       commitSeek(time)

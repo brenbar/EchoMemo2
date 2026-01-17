@@ -21,12 +21,119 @@ export default function PlaylistPlaybackPage() {
   const [playCount, setPlayCount] = useState(1)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [showNowPlaying, setShowNowPlaying] = useState(false)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const playlistRef = useRef<PlaylistWithUrls | null>(null)
   const currentIndexRef = useRef(0)
   const playCountRef = useRef(1)
-  const { ensureFillerPlaying, stopFiller, maybePrewarm, pauseAll } = useAudioContinuity(audioRef)
+  const isScrubbingRef = useRef(false)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const bufferRef = useRef<AudioBuffer | null>(null)
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null)
+  const startAtRef = useRef(0)
+  const offsetRef = useRef(0)
+  const rafRef = useRef<number | null>(null)
+  const { ensureFillerPlaying, stopFiller, pauseAll } = useAudioContinuity(audioRef)
+
+  function ensureContext() {
+    if (audioCtxRef.current) return audioCtxRef.current
+    const Ctor = (window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext) as
+      | typeof AudioContext
+      | undefined
+    if (!Ctor) throw new Error('Web Audio unavailable')
+    const ctx = new Ctor()
+    audioCtxRef.current = ctx
+    return ctx
+  }
+
+  function stopAll() {
+    pauseSource()
+    pauseAll()
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {})
+      audioCtxRef.current = null
+    }
+  }
+
+  function pauseSource() {
+    const ctx = audioCtxRef.current
+    const src = sourceRef.current
+    if (!ctx || !src) return
+    const dur = bufferRef.current?.duration ?? 0
+    const elapsed = ctx.currentTime - startAtRef.current
+    offsetRef.current = dur ? (elapsed % dur) : 0
+    src.onended = null
+    try {
+      src.stop()
+    } catch {
+      // Source might already be stopped when onended fires; ignore.
+    }
+    sourceRef.current = null
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+    rafRef.current = null
+    setIsPlaying(false)
+  }
+
+  function handleTrackEnded() {
+    pauseSource()
+    offsetRef.current = 0
+    const list = playlistRef.current
+    const entry = list?.resolved[currentIndexRef.current]
+    if (!entry) return
+    const nextCount = playCountRef.current + 1
+    if (nextCount <= entry.repeats) {
+      playCountRef.current = nextCount
+      setPlayCount(nextCount)
+      setShowNowPlaying(true)
+      startSource(0)
+      return
+    }
+    playCountRef.current = 1
+    setPlayCount(1)
+    setShowNowPlaying(false)
+    ensureFillerPlaying()
+    jumpToIndex(currentIndexRef.current + 1)
+  }
+
+  function startSource(offset = 0) {
+    const ctx = audioCtxRef.current ?? ensureContext()
+    if (!bufferRef.current) return
+    const entry = playlistRef.current?.resolved[currentIndexRef.current]
+    if (!entry) return
+    try {
+      void ctx.resume()
+      const src = ctx.createBufferSource()
+      const bufDur = bufferRef.current.duration || 0
+      const startOffset = bufDur ? Math.max(0, Math.min(offset, bufDur)) : offset
+      src.buffer = bufferRef.current
+      src.loop = false
+      src.connect(ctx.destination)
+      startAtRef.current = ctx.currentTime - startOffset
+      sourceRef.current = src
+      src.onended = handleTrackEnded
+      src.start(0, startOffset)
+      if (audioRef.current) audioRef.current.currentTime = startOffset
+      setIsPlaying(true)
+      setShowNowPlaying(true)
+      tick()
+      stopFiller(300)
+    } catch {
+      setAutoPlayBlocked(true)
+      stopFiller(0)
+    }
+  }
+
+  function tick() {
+    const ctx = audioCtxRef.current
+    const buf = bufferRef.current
+    if (!ctx || !buf || !sourceRef.current) return
+    const elapsed = ctx.currentTime - startAtRef.current
+    const position = ((elapsed % buf.duration) + buf.duration) % buf.duration
+    if (!isScrubbingRef.current) setCurrentTime(position)
+    if (audioRef.current) audioRef.current.currentTime = position
+    rafRef.current = requestAnimationFrame(tick)
+  }
 
   useEffect(() => {
     playlistRef.current = playlist
@@ -80,157 +187,105 @@ export default function PlaylistPlaybackPage() {
   const hasTracks = Boolean(playlist?.resolved.length)
 
   useEffect(() => {
-    const player = audioRef.current
-    if (!player || !activeEntry) return
-    ensureFillerPlaying()
-    player.src = activeEntry.url
-    player.loop = activeEntry.repeats > 1
-    player.setAttribute('playsinline', 'true')
-    player.preload = 'auto'
-    player.currentTime = 0
+    if (!activeEntry) return
+
+    let cancelled = false
+    offsetRef.current = 0
     setCurrentTime(0)
-    setDuration(activeEntry.recording.duration)
     setPlayCount(1)
     playCountRef.current = 1
-    player
-      .play()
-      .then(() => {
-        stopFiller(300)
-        setIsPlaying(true)
-      })
-      .catch(() => {
-        setAutoPlayBlocked(true)
-        setIsPlaying(false)
-        stopFiller(0)
-      })
-  }, [activeEntry, currentIndex, ensureFillerPlaying, stopFiller])
+    setShowNowPlaying(true)
 
-  useEffect(() => {
-    const player = audioRef.current
-    if (!player) return undefined
+    if (audioRef.current) {
+      audioRef.current.src = activeEntry.url
+      audioRef.current.loop = false
+      audioRef.current.load()
+    }
 
-    const handlePlay = () => setIsPlaying(true)
-    const handlePause = () => {
-      setIsPlaying(false)
-      stopFiller(0)
-    }
-    const handleTime = () => {
-      setCurrentTime(player.currentTime)
-      maybePrewarm()
-    }
-    const handleLoaded = () => {
-      if (Number.isFinite(player.duration)) {
-        setDuration(player.duration)
+    const loadAndPlay = async () => {
+      try {
+        ensureFillerPlaying()
+        const ctx = ensureContext()
+        const response = await fetch(activeEntry.url)
+        const arrayBuffer = await response.arrayBuffer()
+        const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0))
+        if (cancelled) return
+        bufferRef.current = decoded
+        setDuration(decoded.duration)
+        await ctx.resume()
+        startSource(0)
+      } catch {
+        if (!cancelled) setAutoPlayBlocked(true)
       }
     }
-    const handleEnded = () => {
-      const list = playlistRef.current
-      if (!list) return
-      const entry = list.resolved[currentIndexRef.current]
-      if (!entry) return
-      ensureFillerPlaying()
 
-      const nextCount = playCountRef.current + 1
-
-      if (nextCount <= entry.repeats) {
-        playCountRef.current = nextCount
-        setPlayCount(nextCount)
-        // Keep loop enabled so the next cycle starts without calling play().
-        player.loop = true
-        stopFiller(180)
-        return
-      }
-
-      player.loop = false
-      player.currentTime = 0
-      player.pause()
-      jumpToIndex(currentIndexRef.current + 1)
-    }
-
-    player.addEventListener('play', handlePlay)
-    player.addEventListener('pause', handlePause)
-    player.addEventListener('timeupdate', handleTime)
-    player.addEventListener('loadedmetadata', handleLoaded)
-    player.addEventListener('ended', handleEnded)
+    loadAndPlay()
 
     return () => {
-      player.removeEventListener('play', handlePlay)
-      player.removeEventListener('pause', handlePause)
-      player.removeEventListener('timeupdate', handleTime)
-      player.removeEventListener('loadedmetadata', handleLoaded)
-      player.removeEventListener('ended', handleEnded)
+      cancelled = true
+      pauseSource()
     }
-  }, [ensureFillerPlaying, maybePrewarm, stopFiller])
+  }, [activeEntry])
 
   const togglePlayback = () => {
-    const player = audioRef.current
-    if (!player) return
-    if (player.paused) {
-      ensureFillerPlaying()
-      player
-        .play()
-        .then(() => {
-          stopFiller(250)
-          setIsPlaying(true)
-        })
-        .catch(() => {
-          setAutoPlayBlocked(true)
-          setIsPlaying(false)
-          stopFiller(0)
-        })
+    if (isPlaying) {
+      pauseSource()
     } else {
-      player.pause()
-      stopFiller(0)
+      startSource(offsetRef.current)
     }
   }
 
-  const jumpToIndex = (target: number) => {
+  function jumpToIndex(target: number) {
     const list = playlistRef.current
     if (!list || list.resolved.length === 0) return
     const size = list.resolved.length
     const nextIndex = ((target % size) + size) % size
-    const player = audioRef.current
-    if (player && !player.paused) ensureFillerPlaying()
+    pauseSource()
     currentIndexRef.current = nextIndex
     playCountRef.current = 1
     setPlayCount(1)
+    setCurrentTime(0)
+    offsetRef.current = 0
+    setShowNowPlaying(false)
+    if (audioRef.current) audioRef.current.currentTime = 0
     setCurrentIndex(nextIndex)
   }
 
   const nextTrack = () => jumpToIndex(currentIndexRef.current + 1)
   const prevTrack = () => jumpToIndex(currentIndexRef.current - 1)
 
-  useEffect(() => () => pauseAll(), [pauseAll])
+  useEffect(() => () => stopAll(), [])
 
   return (
     <div className="grid gap-5 text-slate-900 dark:text-slate-100 lg:grid-cols-[2fr,1fr]">
       <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
-        <div className="flex items-start gap-3">
-          <button
-            className="inline-flex items-center gap-2 rounded-md pr-2 py-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-            onClick={() => navigate('/')}
-            // Always return to list; folder context handled by breadcrumbs there.
-            aria-label="Back to list"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 5.75 9.25 12l6.25 6.25" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 12h14" />
-            </svg>
-          </button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">{playlist?.name ?? 'Loading…'}</h1>
-            {activeEntry && (
-              <p className="text-sm text-slate-600 dark:text-slate-300">
-                Now playing: {activeEntry.recording.name} ({playCount}/{activeEntry.repeats})
-              </p>
-            )}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-1 items-start gap-3">
+            <button
+              className="inline-flex items-center gap-2 rounded-md pr-2 py-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+              onClick={() => navigate('/')} // Always return to list; folder context handled by breadcrumbs there.
+              aria-label="Back to list"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 5.75 9.25 12l6.25 6.25" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 12h14" />
+              </svg>
+            </button>
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">{playlist?.name ?? 'Loading…'}</h1>
+              {activeEntry && showNowPlaying && (
+                <p className="text-sm text-slate-600 dark:text-slate-300">
+                  Now playing: {activeEntry.recording.name} ({playCount}/{activeEntry.repeats})
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
 
         <div className="pt-4 mt-5 flex flex-col gap-4">
-          <audio ref={audioRef} className="hidden" />
+          <audio ref={audioRef} className="hidden" onEnded={handleTrackEnded} />
           <div className="flex items-center gap-3">
             <button
               className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700 shadow-sm transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:disabled:bg-slate-800"
