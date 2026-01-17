@@ -11,17 +11,27 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'EchoMemo192.png', 'EchoMemo512.png'],
       manifest: {
         name: 'EchoMemo',
         short_name: 'EchoMemo',
-        start_url: basePath,
+        start_url: `${basePath}index.html`,
         scope: basePath,
         display: 'standalone',
         background_color: '#f8fafc',
         theme_color: '#0f172a',
         description: 'Record yourself reciting scripts, then loop playback to memorize.',
         icons: [
+          {
+            src: 'EchoMemo192.png',
+            sizes: '192x192',
+            type: 'image/png',
+          },
+          {
+            src: 'EchoMemo512.png',
+            sizes: '512x512',
+            type: 'image/png',
+          },
           {
             src: 'icon-192.png',
             sizes: '192x192',
