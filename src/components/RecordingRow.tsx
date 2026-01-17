@@ -82,7 +82,7 @@ export default function RecordingRow({ recording, onOpen, onRename, onDelete, on
           type="button"
           className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           aria-label="Move item"
-          title="Move"
+          title="Move item"
           onClick={(e) => {
             e.stopPropagation()
             onMove()
@@ -106,7 +106,7 @@ export default function RecordingRow({ recording, onOpen, onRename, onDelete, on
         <button
           type="button"
           className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-          aria-label="Rename recording"
+          aria-label="Rename"
           title="Rename"
           onClick={(e) => {
             e.stopPropagation()
@@ -130,7 +130,7 @@ export default function RecordingRow({ recording, onOpen, onRename, onDelete, on
         <button
           type="button"
           className="flex h-11 w-11 items-center justify-center rounded-full bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-rose-900/40 dark:text-rose-100 dark:hover:bg-rose-900/60"
-          aria-label="Delete recording"
+          aria-label="Delete"
           title="Delete"
           onClick={(e) => {
             e.stopPropagation()
