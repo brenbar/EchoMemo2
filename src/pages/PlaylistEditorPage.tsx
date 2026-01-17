@@ -243,7 +243,7 @@ export default function PlaylistEditorPage() {
                         <div className="text-base font-semibold text-slate-900 dark:text-slate-50">{entry.recording.name}</div>
                         <div className="text-xs text-slate-500 dark:text-slate-400">{formatDuration(entry.recording.duration)}</div>
                       </div>
-                      <div className="flex items-center justify-center gap-2 rounded-lg bg-white px-2 py-1 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                      <div className="flex items-center justify-center gap-2 rounded-lg bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900">
                         <button
                           className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                           type="button"
