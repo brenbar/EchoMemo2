@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { LibraryItem, PlaylistWithData, RecordingWithData } from '../types'
+import type { LibraryItem, PlaylistMeta, PlaylistWithData, RecordingWithData } from '../types'
 import {
   deleteRecording,
   getRecordingWithData,
@@ -13,6 +13,7 @@ import {
   saveRecording,
   updateParent,
   getPlaylistWithData,
+  updatePlaylist as persistPlaylist,
 } from '../storage/indexedDb'
 
 interface RecordingsContextValue {
@@ -25,6 +26,12 @@ interface RecordingsContextValue {
   addRecording(input: { name: string; duration: number; blob: Blob; scriptText: string; parent?: string | null }): Promise<void>
   addFolder(input: { name: string; parent?: string | null }): Promise<void>
   addPlaylist(input: { name: string; entries: { recordingId: string; repeats: number }[]; parent?: string | null }): Promise<void>
+  updatePlaylist(input: {
+    id: string
+    name: string
+    entries: { recordingId: string; repeats: number }[]
+    parent?: string | null
+  }): Promise<PlaylistMeta | null>
   removeItem(id: string): Promise<void>
   updateName(id: string, name: string): Promise<void>
   moveItem(id: string, parent: string | null): Promise<void>
@@ -96,6 +103,20 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
     [activeParentId],
   )
 
+  const updatePlaylist = useCallback(
+    async (input: { id: string; name: string; entries: { recordingId: string; repeats: number }[]; parent?: string | null }) => {
+      const updated = await persistPlaylist(input)
+      if (!updated) return null
+      setItems((prev) => {
+        const exists = prev.some((item) => item.id === updated.id)
+        if (!exists) return prev
+        return prev.map((item) => (item.id === updated.id ? updated : item))
+      })
+      return updated
+    },
+    [],
+  )
+
   const removeItem = useCallback(async (id: string) => {
     await deleteRecording(id)
     let removedSize = 0
@@ -151,6 +172,7 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
       addRecording,
       addFolder,
       addPlaylist,
+      updatePlaylist,
       removeItem,
       updateName,
       moveItem,
@@ -158,7 +180,7 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
       fetchRecording,
       fetchPlaylist,
     }),
-    [items, totalBytes, loading, activeParentId, refresh, setActiveParent, addRecording, addFolder, addPlaylist, removeItem, updateName, moveItem, listFoldersForParent, fetchRecording, fetchPlaylist],
+    [items, totalBytes, loading, activeParentId, refresh, setActiveParent, addRecording, addFolder, addPlaylist, updatePlaylist, removeItem, updateName, moveItem, listFoldersForParent, fetchRecording, fetchPlaylist],
   )
 
   return <RecordingsContext.Provider value={value}>{children}</RecordingsContext.Provider>

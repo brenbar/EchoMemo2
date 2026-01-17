@@ -281,6 +281,43 @@ export async function savePlaylist(input: { name: string; parent?: string | null
   return record
 }
 
+export async function updatePlaylist(input: {
+  id: string
+  name: string
+  parent?: string | null
+  entries: PlaylistEntry[]
+}): Promise<PlaylistMeta | null> {
+  const db = await getDb()
+  const tx = db.transaction(STORE_NAME, 'readwrite')
+  const store = tx.objectStore(STORE_NAME)
+  const existing = (await wrapRequest(store.get(input.id))) as RecordingRecord | undefined
+
+  if (!existing || !isPlaylistRecord(existing)) {
+    tx.abort()
+    await txDone(tx).catch(() => {})
+    return null
+  }
+
+  const sanitizedEntries = input.entries.map((entry) => ({
+    recordingId: entry.recordingId,
+    repeats: Math.max(1, Math.round(entry.repeats || 1)),
+  }))
+
+  const updated: PlaylistMeta = {
+    ...existing,
+    name: input.name,
+    parent: input.parent ?? existing.parent ?? null,
+    kind: 'playlist',
+    isPlaylist: true,
+    isFolder: false,
+    entries: sanitizedEntries,
+  }
+
+  store.put(updated)
+  await txDone(tx)
+  return updated
+}
+
 export async function getRecordingWithData(id: string): Promise<RecordingWithData | null> {
   const db = await getDb()
   const tx = db.transaction(STORE_NAME, 'readonly')

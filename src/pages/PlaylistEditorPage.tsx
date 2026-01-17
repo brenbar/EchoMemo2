@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import Modal from '../components/Modal'
 import { useRecordings } from '../state/RecordingsContext'
 import type { LibraryItem, LibraryItemKind, RecordingMeta } from '../types'
@@ -17,17 +17,22 @@ function isRecording(item: LibraryItem): item is RecordingMeta {
 }
 
 export default function PlaylistEditorPage() {
-  const { items, addPlaylist } = useRecordings()
+  const { items, addPlaylist, fetchPlaylist, updatePlaylist } = useRecordings()
   const navigate = useNavigate()
   const location = useLocation()
-  const parentId = (location.state as { parentId?: string | null } | null)?.parentId ?? null
+  const { id: playlistId } = useParams<{ id?: string }>()
+  const routeState = (location.state as { parentId?: string | null; returnTo?: string } | null) ?? {}
+  const [parentId, setParentId] = useState<string | null>(routeState.parentId ?? null)
+  const isEditMode = Boolean(playlistId)
 
-  const [name, setName] = useState('New playlist')
+  const [name, setName] = useState(isEditMode ? 'Loading playlist' : 'New playlist')
   const [entries, setEntries] = useState<{ recordingId: string; repeats: number }[]>([])
   const [selectOpen, setSelectOpen] = useState(false)
   const [browseParent, setBrowseParent] = useState<string | null>(parentId ?? null)
   const [browsePath, setBrowsePath] = useState<{ id: string; name: string }[]>([])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [loadingExisting, setLoadingExisting] = useState(isEditMode)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const recordingsById = useMemo(() => {
     const map = new Map<string, RecordingMeta>()
@@ -49,6 +54,42 @@ export default function PlaylistEditorPage() {
   )
   const visibleFolders = visibleChildren.filter((item) => item.isFolder)
   const visibleRecordings = visibleChildren.filter(isRecording)
+
+  useEffect(() => {
+    if (!isEditMode || !playlistId) return undefined
+    let active = true
+    setLoadingExisting(true)
+    setLoadError(null)
+
+    fetchPlaylist(playlistId)
+      .then((data) => {
+        if (!active) return
+        if (!data) {
+          setLoadError('Playlist not found.')
+          return
+        }
+        setName(data.name)
+        setParentId(data.parent ?? null)
+        setBrowseParent(data.parent ?? null)
+        setBrowsePath([])
+        setEntries(
+          data.entries.map((entry) => ({
+            recordingId: entry.recordingId,
+            repeats: Math.max(1, Math.round(entry.repeats || 1)),
+          })),
+        )
+      })
+      .catch(() => {
+        if (active) setLoadError('Unable to load playlist.')
+      })
+      .finally(() => {
+        if (active) setLoadingExisting(false)
+      })
+
+    return () => {
+      active = false
+    }
+  }, [fetchPlaylist, isEditMode, playlistId])
 
   useEffect(() => {
     if (selectOpen) {
@@ -80,7 +121,7 @@ export default function PlaylistEditorPage() {
 
   const removeEntry = (recordingId: string) => setEntries((prev) => prev.filter((entry) => entry.recordingId !== recordingId))
 
-  const canSave = name.trim().length > 0 && readyEntries.length > 0
+  const canSave = name.trim().length > 0 && readyEntries.length > 0 && !loadingExisting
 
   const handleSave = async () => {
     if (!canSave) return
@@ -88,11 +129,24 @@ export default function PlaylistEditorPage() {
       recordingId: entry.recordingId,
       repeats: Math.max(1, Math.round(entry.repeats || 1)),
     }))
+    if (isEditMode && playlistId) {
+      const updated = await updatePlaylist({ id: playlistId, name: name.trim(), entries: payload, parent: parentId })
+      if (!updated) {
+        setLoadError('Unable to save playlist.')
+        return
+      }
+      const destination = routeState.returnTo ?? `/playlist/${playlistId}`
+      navigate(destination)
+      return
+    }
     await addPlaylist({ name: name.trim(), entries: payload, parent: parentId })
     navigate(parentId ? `/folder/${parentId}` : '/')
   }
 
-  const goBack = () => navigate(parentId ? `/folder/${parentId}` : '/')
+  const goBack = () => {
+    const destination = routeState.returnTo ?? (parentId ? `/folder/${parentId}` : '/')
+    navigate(destination)
+  }
 
   return (
     <div className="flex flex-col gap-5 text-slate-900 dark:text-slate-100">
@@ -114,9 +168,21 @@ export default function PlaylistEditorPage() {
           </svg>
           Back
         </button>
-        <h1 className="text-lg font-bold">New playlist</h1>
+        <h1 className="text-lg font-bold">{isEditMode ? 'Edit playlist' : 'New playlist'}</h1>
         <div className="w-16" />
       </div>
+
+      {loadError && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">
+          {loadError}
+        </div>
+      )}
+
+      {loadingExisting && isEditMode && !loadError && (
+        <div className="rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-200">
+          Loading playlist…
+        </div>
+      )}
 
       <section className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
         <div className="flex flex-col gap-4">
@@ -128,6 +194,7 @@ export default function PlaylistEditorPage() {
               id="playlist-name"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               value={name}
+              disabled={loadingExisting}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
@@ -139,14 +206,15 @@ export default function PlaylistEditorPage() {
                 <p className="text-xs text-slate-500 dark:text-slate-400">Select recordings to include and set repeats.</p>
               </div>
               <button
-                className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
+                className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-400 dark:disabled:bg-slate-700"
+                disabled={loadingExisting}
                 onClick={() => setSelectOpen(true)}
               >
                 Add recordings
               </button>
             </div>
 
-            {readyEntries.length === 0 && (
+            {readyEntries.length === 0 && !loadingExisting && (
               <div className="rounded-xl border border-dashed border-slate-300 bg-white/70 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
                 No recordings added yet. Click “Add recordings” to start building your playlist.
               </div>
@@ -175,10 +243,12 @@ export default function PlaylistEditorPage() {
                           min={1}
                           className="w-20 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                           value={entry.repeats}
+                          disabled={loadingExisting}
                           onChange={(e) => updateRepeats(entry.recordingId, Number(e.target.value) || 1)}
                         />
                         <button
-                          className="rounded-full bg-rose-100 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-200 dark:bg-rose-900/40 dark:text-rose-100 dark:hover:bg-rose-900/60"
+                          className="rounded-full bg-rose-100 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-rose-900/40 dark:text-rose-100 dark:hover:bg-rose-900/60"
+                          disabled={loadingExisting}
                           onClick={() => removeEntry(entry.recordingId)}
                           aria-label={`Remove ${entry.recording.name} from playlist`}
                         >
@@ -204,7 +274,7 @@ export default function PlaylistEditorPage() {
               disabled={!canSave}
               onClick={handleSave}
             >
-              Save playlist
+              {isEditMode ? 'Save changes' : 'Save playlist'}
             </button>
           </div>
         </div>

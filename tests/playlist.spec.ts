@@ -135,6 +135,22 @@ test('user can create a playlist from a folder and adjust repeats', async ({ pag
   await expect(page.getByText(/repeats 2/i)).toBeVisible()
 })
 
+test('user can edit a playlist from the dedicated editor view', async ({ page }) => {
+  await createPlaylistAtRoot(page, 'Editable List', ['Track A', 'Track B'])
+
+  await page.getByRole('button', { name: 'Edit playlist' }).click()
+  await expect(page).toHaveURL(/\/playlist\/.*\/edit/)
+  await expect(page.getByLabel('Playlist name')).toHaveValue('Editable List')
+
+  await page.getByLabel('Playlist name').fill('Edited List')
+  await page.getByLabel('Repeats for Track B').fill('3')
+  await page.getByRole('button', { name: 'Save changes' }).click()
+
+  await expect(page).toHaveURL(/\/playlist\//)
+  await expect(page.getByText('Edited List')).toBeVisible()
+  await expect(page.getByText(/repeats 3/i)).toBeVisible()
+})
+
 test('playlist playback jumps between tracks with next/previous', async ({ page }) => {
   await createPlaylistAtRoot(page, 'Jump Test', ['Clip A', 'Clip B'])
 

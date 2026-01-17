@@ -259,25 +259,51 @@ export default function PlaylistPlaybackPage() {
   return (
     <div className="grid gap-5 text-slate-900 dark:text-slate-100 lg:grid-cols-[2fr,1fr]">
       <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
-        <div className="flex items-start gap-3">
-          <button
-            className="inline-flex items-center gap-2 rounded-md pr-2 py-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-            onClick={() => navigate('/')} // Always return to list; folder context handled by breadcrumbs there.
-            aria-label="Back to list"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 5.75 9.25 12l6.25 6.25" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 12h14" />
-            </svg>
-          </button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">{playlist?.name ?? 'Loading…'}</h1>
-            {activeEntry && showNowPlaying && (
-              <p className="text-sm text-slate-600 dark:text-slate-300">
-                Now playing: {activeEntry.recording.name} ({playCount}/{activeEntry.repeats})
-              </p>
-            )}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-1 items-start gap-3">
+            <button
+              className="inline-flex items-center gap-2 rounded-md pr-2 py-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+              onClick={() => navigate('/')} // Always return to list; folder context handled by breadcrumbs there.
+              aria-label="Back to list"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 5.75 9.25 12l6.25 6.25" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 12h14" />
+              </svg>
+            </button>
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">{playlist?.name ?? 'Loading…'}</h1>
+              {activeEntry && showNowPlaying && (
+                <p className="text-sm text-slate-600 dark:text-slate-300">
+                  Now playing: {activeEntry.recording.name} ({playCount}/{activeEntry.repeats})
+                </p>
+              )}
+            </div>
           </div>
+          {playlist && (
+            <button
+              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+              onClick={() =>
+                navigate(`/playlist/${playlist.id}/edit`, {
+                  state: { parentId: playlist.parent ?? null, returnTo: `/playlist/${playlist.id}` },
+                })
+              }
+            >
+              <svg
+                aria-hidden
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                className="h-4 w-4"
+              >
+                <path d="M3 21h4l11-11a2.8 2.8 0 0 0-4-4L3 17v4Z" />
+                <path d="M14 6l4 4" />
+              </svg>
+              Edit playlist
+            </button>
+          )}
         </div>
 
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}

@@ -1,5 +1,6 @@
 # Copilot Instructions
 
+- If you are implementing a new feature, add new playwright tests for that feature.
 - Before you declare a task complete:
     - Build the project: `npm run build`
     - Run all unit tests: `npm run test:e2e -- --project=chromium`

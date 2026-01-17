@@ -142,6 +142,15 @@ export default function ListPage() {
                 }
               }}
               onRename={() => {
+                if (kind === 'playlist') {
+                  navigate(`/playlist/${recording.id}/edit`, {
+                    state: {
+                      parentId: activeParentId ?? null,
+                      returnTo: activeParentId ? `/folder/${activeParentId}` : '/',
+                    },
+                  })
+                  return
+                }
                 setRenameTarget(recording)
                 setRenameValue(recording.name)
               }}

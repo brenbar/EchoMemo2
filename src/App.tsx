@@ -66,6 +66,7 @@ export default function App() {
           <Route path="/folder/:id" element={<ListPage />} />
           <Route path="/record" element={<RecordPage />} />
           <Route path="/playlist/new" element={<PlaylistEditorPage />} />
+          <Route path="/playlist/:id/edit" element={<PlaylistEditorPage />} />
           <Route path="/playlist/:id" element={<PlaylistPlaybackPage />} />
           <Route path="/play/:id" element={<PlaybackPage />} />
         </Routes>
