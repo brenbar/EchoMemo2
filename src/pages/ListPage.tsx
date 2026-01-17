@@ -35,6 +35,16 @@ export default function ListPage() {
   const displayedItems = items.filter((item) => (item.parent ?? null) === (activeParentId ?? null))
   const currentFolder = items.find((item) => item.isFolder && item.id === activeParentId)
   const backTarget = currentFolder?.parent ? `/folder/${currentFolder.parent}` : '/'
+  const activeBrowseFolder = browsePath[browsePath.length - 1]
+  const destinationName =
+    activeBrowseFolder?.name ??
+    (browseParent
+      ? items.find((item) => item.id === browseParent)?.name ?? 'selected folder'
+      : 'Root')
+  const isSameLocation = moveTarget ? (browseParent ?? null) === (moveTarget.parent ?? null) : false
+  const isInvalidSelf = moveTarget ? moveTarget.id === (browseParent ?? null) : false
+  const moveDisabled = !moveTarget || isSameLocation || isInvalidSelf
+  const moveButtonLabel = isSameLocation ? "Stay" : `Move to '${destinationName}'`
 
 
   const loadFolders = async (parentId: string | null) => {
@@ -262,15 +272,15 @@ export default function ListPage() {
             </button>
             <button
               className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-400 dark:disabled:bg-slate-700"
-              disabled={!moveTarget || moveTarget.id === (browseParent ?? null)}
+              disabled={moveDisabled}
               onClick={async () => {
                 if (!moveTarget) return
-                if (moveTarget.id === (browseParent ?? null)) return
+                if (moveDisabled) return
                 await moveItem(moveTarget.id, browseParent ?? null)
                 setMoveTarget(null)
               }}
             >
-              Move here
+              {moveButtonLabel}
             </button>
           </>
         }
@@ -322,7 +332,15 @@ export default function ListPage() {
             {!browseLoading && availableFolders.length > 0 && (
               <div className="flex flex-col divide-y divide-slate-200 dark:divide-slate-800">
                 {availableFolders.map((folder) => (
-                  <div key={folder.id} className="flex items-center justify-between py-2">
+                  <button
+                    key={folder.id}
+                    type="button"
+                    className="flex w-full items-center justify-between gap-2 py-2 text-left transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 dark:hover:bg-slate-800/60"
+                    onClick={() => {
+                      setBrowseParent(folder.id)
+                      setBrowsePath((prev) => [...prev, { id: folder.id, name: folder.name }])
+                    }}
+                  >
                     <div className="flex items-center gap-2">
                       <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         <svg
@@ -339,18 +357,18 @@ export default function ListPage() {
                       </span>
                       <span className="font-semibold text-slate-800 dark:text-slate-100">{folder.name}</span>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        className="rounded-full px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                        onClick={() => {
-                          setBrowseParent(folder.id)
-                          setBrowsePath((prev) => [...prev, { id: folder.id, name: folder.name }])
-                        }}
-                      >
-                        Open
-                      </button>
-                    </div>
-                  </div>
+                    <svg
+                      aria-hidden
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      className="h-4 w-4 text-slate-500"
+                    >
+                      <path d="m9 6 6 6-6 6" />
+                    </svg>
+                  </button>
                 ))}
               </div>
             )}
