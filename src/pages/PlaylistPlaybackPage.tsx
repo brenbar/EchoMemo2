@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useRecordings } from '../state/RecordingsContext'
 import type { PlaylistWithData, PlaylistResolvedEntry } from '../types'
 import { formatDuration } from '../utils/format'
+import { useAudioContinuity } from '../utils/audioContinuity'
 
 type PlaylistEntryWithUrl = PlaylistResolvedEntry & { url: string }
 type PlaylistWithUrls = Omit<PlaylistWithData, 'resolved'> & { resolved: PlaylistEntryWithUrl[] }
@@ -33,6 +34,7 @@ export default function PlaylistPlaybackPage() {
   const startAtRef = useRef(0)
   const offsetRef = useRef(0)
   const rafRef = useRef<number | null>(null)
+  const { ensureFillerPlaying, stopFiller, pauseAll } = useAudioContinuity(audioRef)
 
   function ensureContext() {
     if (audioCtxRef.current) return audioCtxRef.current
@@ -47,6 +49,7 @@ export default function PlaylistPlaybackPage() {
 
   function stopAll() {
     pauseSource()
+    pauseAll()
     if (audioCtxRef.current) {
       audioCtxRef.current.close().catch(() => {})
       audioCtxRef.current = null
@@ -84,6 +87,7 @@ export default function PlaylistPlaybackPage() {
     playCountRef.current = 1
     setPlayCount(1)
     setShowNowPlaying(false)
+    ensureFillerPlaying()
     jumpToIndex(currentIndexRef.current + 1)
   }
 
@@ -95,18 +99,22 @@ export default function PlaylistPlaybackPage() {
     try {
       void ctx.resume()
       const src = ctx.createBufferSource()
+      const bufDur = bufferRef.current.duration || 0
+      const startOffset = bufDur ? Math.max(0, Math.min(offset, bufDur)) : offset
       src.buffer = bufferRef.current
       src.loop = false
       src.connect(ctx.destination)
-      startAtRef.current = ctx.currentTime - offset
+      startAtRef.current = ctx.currentTime - startOffset
       sourceRef.current = src
       src.onended = handleTrackEnded
-      src.start(0, offset)
-      if (audioRef.current) audioRef.current.currentTime = offset
+      src.start(0, startOffset)
+      if (audioRef.current) audioRef.current.currentTime = startOffset
       setIsPlaying(true)
       tick()
+      stopFiller(300)
     } catch {
       setAutoPlayBlocked(true)
+      stopFiller(0)
     }
   }
 
@@ -190,6 +198,7 @@ export default function PlaylistPlaybackPage() {
 
     const loadAndPlay = async () => {
       try {
+        ensureFillerPlaying()
         const ctx = ensureContext()
         const response = await fetch(activeEntry.url)
         const arrayBuffer = await response.arrayBuffer()
