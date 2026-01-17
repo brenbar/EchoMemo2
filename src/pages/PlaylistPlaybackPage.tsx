@@ -73,7 +73,8 @@ export default function PlaylistPlaybackPage() {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     rafRef.current = null
     setIsPlaying(false)
-    stopFiller(120)
+    if (audioRef.current) audioRef.current.pause()
+    if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'
   }
 
   function handleTrackEnded() {
@@ -103,7 +104,6 @@ export default function PlaylistPlaybackPage() {
     const entry = playlistRef.current?.resolved[currentIndexRef.current]
     if (!entry) return
     try {
-      ensureFillerPlaying()
       void ctx.resume()
       const src = ctx.createBufferSource()
       const bufDur = bufferRef.current.duration || 0
@@ -116,9 +116,16 @@ export default function PlaylistPlaybackPage() {
       src.onended = handleTrackEnded
       src.start(0, startOffset)
       if (audioRef.current) audioRef.current.currentTime = startOffset
+      if (audioRef.current) {
+        audioRef.current.muted = true
+        audioRef.current.loop = false
+        void audioRef.current.play().catch(() => {})
+      }
       setIsPlaying(true)
       setShowNowPlaying(true)
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'
       tick()
+      stopFiller(300)
     } catch {
       setAutoPlayBlocked(true)
       stopFiller(0)
@@ -133,6 +140,13 @@ export default function PlaylistPlaybackPage() {
     const position = ((elapsed % buf.duration) + buf.duration) % buf.duration
     if (!isScrubbingRef.current) setCurrentTime(position)
     if (audioRef.current) audioRef.current.currentTime = position
+    if ('mediaSession' in navigator && duration) {
+      try {
+        navigator.mediaSession.setPositionState({ duration: duration || buf.duration || 0, playbackRate: 1, position })
+      } catch {
+        // Not all browsers implement setPositionState
+      }
+    }
     rafRef.current = requestAnimationFrame(tick)
   }
 
@@ -227,6 +241,37 @@ export default function PlaylistPlaybackPage() {
       pauseSource()
     }
   }, [activeEntry])
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    const ms = navigator.mediaSession
+    const entry = playlistRef.current?.resolved[currentIndexRef.current]
+    if (entry) {
+      ms.metadata = new MediaMetadata({
+        title: entry.recording.name,
+        artist: playlist?.name ?? 'Playlist',
+        album: playlist?.name ?? undefined,
+      })
+    }
+
+    const handlePlay = () => startSource(offsetRef.current)
+    const handlePause = () => pauseSource()
+    const handleNext = () => jumpToIndex(currentIndexRef.current + 1)
+    const handlePrev = () => jumpToIndex(currentIndexRef.current - 1)
+    ms.setActionHandler('play', handlePlay)
+    ms.setActionHandler('pause', handlePause)
+    ms.setActionHandler('stop', handlePause)
+    ms.setActionHandler('nexttrack', handleNext)
+    ms.setActionHandler('previoustrack', handlePrev)
+
+    return () => {
+      ms.setActionHandler('play', null)
+      ms.setActionHandler('pause', null)
+      ms.setActionHandler('stop', null)
+      ms.setActionHandler('nexttrack', null)
+      ms.setActionHandler('previoustrack', null)
+    }
+  }, [playlist, currentIndex])
 
   const togglePlayback = () => {
     if (isPlaying) {
