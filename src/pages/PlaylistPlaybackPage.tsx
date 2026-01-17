@@ -73,6 +73,7 @@ export default function PlaylistPlaybackPage() {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     rafRef.current = null
     setIsPlaying(false)
+    stopFiller(120)
   }
 
   function handleTrackEnded() {
@@ -102,6 +103,7 @@ export default function PlaylistPlaybackPage() {
     const entry = playlistRef.current?.resolved[currentIndexRef.current]
     if (!entry) return
     try {
+      ensureFillerPlaying()
       void ctx.resume()
       const src = ctx.createBufferSource()
       const bufDur = bufferRef.current.duration || 0
@@ -117,7 +119,6 @@ export default function PlaylistPlaybackPage() {
       setIsPlaying(true)
       setShowNowPlaying(true)
       tick()
-      stopFiller(300)
     } catch {
       setAutoPlayBlocked(true)
       stopFiller(0)
