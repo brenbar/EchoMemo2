@@ -70,7 +70,7 @@ async function createRecordingInCurrentView(page: Page, name: string) {
   await expect(page.getByText(name)).toBeVisible()
 }
 
-async function createPlaylistAtRoot(page: Page, playlistName: string, recordingNames: string[]) {
+async function createPlaylistAtRoot(page: Page, playlistName: string, recordingNames: string[], repeatOverrides: Record<string, number> = {}) {
   await page.goto('/')
 
   for (const name of recordingNames) {
@@ -84,6 +84,9 @@ async function createPlaylistAtRoot(page: Page, playlistName: string, recordingN
     await page.getByLabel(name).check()
   }
   await page.getByRole('button', { name: 'Add selected' }).click()
+  for (const [name, repeats] of Object.entries(repeatOverrides)) {
+    await page.getByLabel(`Repeats for ${name}`).fill(String(repeats))
+  }
   await page.getByRole('button', { name: 'Save playlist' }).click()
 
   await expect(page.getByText(playlistName)).toBeVisible()
@@ -162,4 +165,33 @@ test('playlist repeats after the final track ends', async ({ page }) => {
 
   await triggerEnded()
   await expect(page.locator('li', { hasText: 'First Clip' }).getByText('Playing')).toBeVisible()
+})
+
+test('playlist advances after exhausting a track\'s repeat count', async ({ page }) => {
+  await createPlaylistAtRoot(page, 'Repeating Track', ['Repeat One', 'Repeat Two'], { 'Repeat One': 2 })
+
+  const triggerEnded = async () => {
+    await page.evaluate(() => {
+      const audio = document.querySelector('audio')
+      audio?.dispatchEvent(new Event('ended'))
+    })
+  }
+
+  const firstTrack = page.locator('li', { hasText: 'Repeat One' })
+  const secondTrack = page.locator('li', { hasText: 'Repeat Two' })
+
+  await expect(firstTrack.getByText('Playing')).toBeVisible()
+
+  await triggerEnded()
+  await expect(firstTrack.getByText('Playing')).toBeVisible()
+
+  await triggerEnded()
+  await expect(secondTrack.getByText('Playing')).toBeVisible()
+  await expect(firstTrack.getByText('Playing')).toHaveCount(0)
+})
+
+test('shows now playing subtext on first iteration', async ({ page }) => {
+  await createPlaylistAtRoot(page, 'Now Playing Copy', ['Solo Clip'])
+
+  await expect(page.getByText(/Now playing: Solo Clip \(1\/1\)/)).toBeVisible()
 })

@@ -63,7 +63,12 @@ export default function PlaylistPlaybackPage() {
     const dur = bufferRef.current?.duration ?? 0
     const elapsed = ctx.currentTime - startAtRef.current
     offsetRef.current = dur ? (elapsed % dur) : 0
-    src.stop()
+    src.onended = null
+    try {
+      src.stop()
+    } catch {
+      // Source might already be stopped when onended fires; ignore.
+    }
     sourceRef.current = null
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     rafRef.current = null
@@ -110,6 +115,7 @@ export default function PlaylistPlaybackPage() {
       src.start(0, startOffset)
       if (audioRef.current) audioRef.current.currentTime = startOffset
       setIsPlaying(true)
+      setShowNowPlaying(true)
       tick()
       stopFiller(300)
     } catch {
@@ -188,7 +194,7 @@ export default function PlaylistPlaybackPage() {
     setCurrentTime(0)
     setPlayCount(1)
     playCountRef.current = 1
-    setShowNowPlaying(false)
+    setShowNowPlaying(true)
 
     if (audioRef.current) {
       audioRef.current.src = activeEntry.url
