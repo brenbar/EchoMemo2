@@ -45,6 +45,8 @@ export default function ListPage() {
   const isInvalidSelf = moveTarget ? moveTarget.id === (browseParent ?? null) : false
   const moveDisabled = !moveTarget || isSameLocation || isInvalidSelf
   const moveButtonLabel = isSameLocation ? "Stay" : `Move to '${destinationName}'`
+  const headerTitle = activeParentId ? currentFolder?.name ?? 'Folder' : 'Your library'
+  const showStorageUsage = !activeParentId
 
 
   const loadFolders = async (parentId: string | null) => {
@@ -75,8 +77,8 @@ export default function ListPage() {
   return (
     <div className="flex flex-col gap-5 pb-24 text-slate-900 dark:text-slate-100">
       <section className="flex flex-col gap-4 rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
+        <div className="grid grid-cols-3 items-center gap-3">
+          <div className="flex items-center justify-start gap-2">
             {activeParentId && (
               <button
                 className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -97,11 +99,13 @@ export default function ListPage() {
               </button>
             )}
           </div>
-          <div className="flex flex-col items-center text-center">
-            <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400">Your library</p>
-            <p className="text-sm text-slate-600 dark:text-slate-300">Storage used: {formatBytes(totalBytes)}</p>
+          <div className="flex flex-col items-center text-center justify-self-center">
+            <p className="text-lg font-semibold tracking-wide text-slate-500 dark:text-slate-400">{headerTitle}</p>
+            {showStorageUsage && (
+              <p className="text-sm text-slate-600 dark:text-slate-300">Storage used: {formatBytes(totalBytes)}</p>
+            )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2">
             <button
               className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
               onClick={() => {

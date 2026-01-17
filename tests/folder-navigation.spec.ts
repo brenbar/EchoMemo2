@@ -77,6 +77,9 @@ test.beforeEach(async ({ page }) => {
 test('folder view only shows children of that folder', async ({ page }) => {
   await page.goto('/')
 
+  const header = page.locator('section').first()
+  await expect(header.getByText(/Storage used/i)).toBeVisible()
+
   await page.getByRole('button', { name: 'New folder' }).click()
   await page.getByLabel('Folder name').fill('My Folder')
   await page.getByRole('button', { name: 'Create' }).click()
@@ -88,6 +91,10 @@ test('folder view only shows children of that folder', async ({ page }) => {
   await folderRow.click()
   await expect(page).toHaveURL(/\/folder\//)
   await expect(page.getByRole('button', { name: 'Back' })).toBeVisible()
+
+  await expect(header.getByText('My Folder')).toBeVisible()
+  await expect(header.getByText(/Your library/i)).toHaveCount(0)
+  await expect(header.getByText(/Storage used/i)).toHaveCount(0)
 
   await createRecordingInCurrentView(page, 'Child Clip')
 
