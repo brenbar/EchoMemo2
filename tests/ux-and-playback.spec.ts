@@ -290,7 +290,8 @@ test('playlist editor disables save without entries and re-disables after remova
   await page.getByLabel('Folder name').fill('Nest')
   await page.getByRole('button', { name: 'Create' }).click()
   await page.getByRole('button', { name: 'Nest' }).click()
-    await createRecording(page, 'Nested Clip', 0, { stay: true })
+  await createRecording(page, 'Nested Clip', 0, { stay: true })
+  await createRecording(page, 'Nested Clip 2', 0, { stay: true })
   await page.getByRole('button', { name: 'Back' }).click()
 
   await page.getByRole('button', { name: 'New playlist' }).click()
@@ -299,9 +300,11 @@ test('playlist editor disables save without entries and re-disables after remova
 
   await page.getByRole('button', { name: 'Add recordings' }).click()
   await page.getByRole('button', { name: 'Nest' }).click()
-  await page.getByLabel('Nested Clip').check()
+  await page.getByLabel('Nested Clip', { exact: true }).check()
+  await page.getByLabel('Nested Clip 2').check()
   await page.getByRole('button', { name: 'Add selected' }).click()
-  await expect(page.getByText('Nested Clip')).toBeVisible()
+  await expect(page.getByText('Nested Clip', { exact: true })).toBeVisible()
+  await expect(page.getByText('Nested Clip 2')).toBeVisible()
   await expect(saveButton).toBeEnabled()
 
   const removeNested = page.getByRole('button', { name: 'Remove Nested Clip from playlist' })

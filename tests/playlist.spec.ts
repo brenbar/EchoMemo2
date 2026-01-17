@@ -72,6 +72,7 @@ async function createRecordingInCurrentView(page: Page, name: string) {
 }
 
 async function createPlaylistAtRoot(page: Page, playlistName: string, recordingNames: string[], repeatOverrides: Record<string, number> = {}) {
+  if (recordingNames.length < 2) throw new Error('Playlists require at least two recordings')
   await page.goto('/')
 
   for (const name of recordingNames) {
@@ -157,6 +158,33 @@ test('user can edit a playlist from the dedicated editor view', async ({ page })
   await expect(page.getByText(/repeats 3/i)).toBeVisible()
 })
 
+test('new playlist requires at least two recordings', async ({ page }) => {
+  await page.goto('/')
+
+  await createRecordingInCurrentView(page, 'Single Clip')
+  await createRecordingInCurrentView(page, 'Another Clip')
+
+  await page.getByRole('button', { name: 'New playlist' }).click()
+  await page.getByLabel('Playlist name').fill('Minimum Tracks')
+
+  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByLabel('Single Clip').check()
+  await page.getByRole('button', { name: 'Add selected' }).click()
+
+  const saveButton = page.getByRole('button', { name: 'Save playlist' })
+  await expect(saveButton).toBeDisabled()
+  await expect(page.getByText(/add at least two recordings/i)).toBeVisible()
+
+  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByLabel('Another Clip').check()
+  await page.getByRole('button', { name: 'Add selected' }).click()
+
+  await expect(saveButton).toBeEnabled()
+  await saveButton.click()
+
+  await expect(page.getByText('Minimum Tracks')).toBeVisible()
+})
+
 test('user can edit a playlist from the list row and return to its folder', async ({ page }) => {
   await page.goto('/')
 
@@ -167,11 +195,13 @@ test('user can edit a playlist from the list row and return to its folder', asyn
   await expect(page).toHaveURL(/\/folder\//)
 
   await createRecordingInCurrentView(page, 'Snippet One')
+  await createRecordingInCurrentView(page, 'Snippet Two')
 
   await page.getByRole('button', { name: 'New playlist' }).click()
   await page.getByLabel('Playlist name').fill('Folder Playlist')
   await page.getByRole('button', { name: 'Add recordings' }).click()
   await page.getByLabel('Snippet One').check()
+  await page.getByLabel('Snippet Two').check()
   await page.getByRole('button', { name: 'Add selected' }).click()
   await page.getByRole('button', { name: 'Save playlist' }).click()
 
@@ -189,6 +219,29 @@ test('user can edit a playlist from the list row and return to its folder', asyn
 
   await expect(page).toHaveURL(/\/folder\//)
   await expect(page.getByText('Folder Playlist Edited')).toBeVisible()
+})
+
+test('edit playlist enforces minimum recordings', async ({ page }) => {
+  await createPlaylistAtRoot(page, 'Edit Minimum', ['Track One', 'Track Two'])
+
+  await page.getByLabel('Back to list').click()
+  const playlistRow = page.locator('div[role="button"]', { hasText: 'Edit Minimum' }).first()
+  await playlistRow.getByRole('button', { name: 'Rename' }).click()
+
+  const saveButton = page.getByRole('button', { name: 'Save changes' })
+  await page.getByRole('button', { name: 'Remove Track One from playlist' }).click()
+
+  await expect(saveButton).toBeDisabled()
+  await expect(page.getByText(/add at least two recordings/i)).toBeVisible()
+
+  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByLabel('Track One').check()
+  await page.getByRole('button', { name: 'Add selected' }).click()
+
+  await expect(saveButton).toBeEnabled()
+  await saveButton.click()
+
+  await expect(page.getByText('Edit Minimum')).toBeVisible()
 })
 
 test('playlist playback jumps between tracks with next/previous', async ({ page }) => {
@@ -247,7 +300,7 @@ test('playlist advances after exhausting a track\'s repeat count', async ({ page
 })
 
 test('shows now playing subtext on first iteration', async ({ page }) => {
-  await createPlaylistAtRoot(page, 'Now Playing Copy', ['Solo Clip'])
+  await createPlaylistAtRoot(page, 'Now Playing Copy', ['Solo Clip', 'Second Solo'])
 
   await expect(page.getByText(/Now playing: Solo Clip \(1\/1\)/)).toBeVisible()
 })

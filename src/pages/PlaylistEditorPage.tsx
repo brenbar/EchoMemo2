@@ -17,6 +17,7 @@ function isRecording(item: LibraryItem): item is RecordingMeta {
 }
 
 export default function PlaylistEditorPage() {
+  const MIN_RECORDINGS = 2
   const { items, addPlaylist, fetchPlaylist, updatePlaylist } = useRecordings()
   const navigate = useNavigate()
   const location = useLocation()
@@ -54,6 +55,9 @@ export default function PlaylistEditorPage() {
   )
   const visibleFolders = visibleChildren.filter((item) => item.isFolder)
   const visibleRecordings = visibleChildren.filter(isRecording)
+
+  const meetsMinimumEntries = readyEntries.length >= MIN_RECORDINGS
+  const needsMoreEntries = readyEntries.length > 0 && readyEntries.length < MIN_RECORDINGS
 
   useEffect(() => {
     if (!isEditMode || !playlistId) return undefined
@@ -118,10 +122,9 @@ export default function PlaylistEditorPage() {
       prev.map((entry) => (entry.recordingId === recordingId ? { ...entry, repeats: Math.max(1, repeats) } : entry)),
     )
   }
-
   const removeEntry = (recordingId: string) => setEntries((prev) => prev.filter((entry) => entry.recordingId !== recordingId))
 
-  const canSave = name.trim().length > 0 && readyEntries.length > 0 && !loadingExisting
+  const canSave = name.trim().length > 0 && meetsMinimumEntries && !loadingExisting
 
   const handleSave = async () => {
     if (!canSave) return
@@ -258,6 +261,12 @@ export default function PlaylistEditorPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {needsMoreEntries && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+                Add at least two recordings to save.
               </div>
             )}
           </div>
