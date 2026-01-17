@@ -360,15 +360,12 @@ export async function getRecordingWithData(id: string): Promise<RecordingWithDat
 }
 
 export async function deleteRecording(id: string): Promise<void> {
-  const db = await getDb()
-  const tx = db.transaction(STORE_NAME, 'readwrite')
-  tx.objectStore(STORE_NAME).delete(id)
-  await txDone(tx)
+  await deleteCascade(id)
 }
 
 export async function deleteCascade(
   id: string,
-): Promise<{ ids: string[]; freedBytes: number }> {
+): Promise<{ ids: string[]; freedBytes: number; updatedPlaylists: PlaylistMeta[] }> {
   const db = await getDb()
   const tx = db.transaction(STORE_NAME, 'readwrite')
   const store = tx.objectStore(STORE_NAME)
@@ -387,6 +384,7 @@ export async function deleteCascade(
 
   const ids: string[] = []
   let freedBytes = 0
+  const removedRecordingIds = new Set<string>()
 
   const visit = (targetId: string) => {
     const record = byId.get(targetId)
@@ -394,6 +392,7 @@ export async function deleteCascade(
     ids.push(targetId)
     if (isRecordingRecord(record)) {
       freedBytes += record.size ?? 0
+      removedRecordingIds.add(targetId)
     }
     const children = byParent.get(targetId) ?? []
     for (const child of children) visit(child.id)
@@ -401,12 +400,40 @@ export async function deleteCascade(
 
   visit(id)
 
+  const deletedIdSet = new Set(ids)
+  const updatedPlaylists: PlaylistMeta[] = []
+
   for (const targetId of ids) {
     store.delete(targetId)
   }
 
+  if (removedRecordingIds.size > 0) {
+    for (const record of records) {
+      if (!isPlaylistRecord(record)) continue
+      if (deletedIdSet.has(record.id)) continue
+      const filteredEntries = record.entries
+        .map((entry) => ({
+          recordingId: entry.recordingId,
+          repeats: Math.max(1, Math.round(entry.repeats || 1)),
+        }))
+        .filter((entry) => !removedRecordingIds.has(entry.recordingId))
+
+      if (filteredEntries.length === record.entries.length) continue
+
+      const updated: PlaylistMeta = {
+        ...record,
+        entries: filteredEntries,
+        kind: 'playlist',
+        isPlaylist: true,
+        isFolder: false,
+      }
+      store.put(updated)
+      updatedPlaylists.push(updated)
+    }
+  }
+
   await txDone(tx)
-  return { ids, freedBytes }
+  return { ids, freedBytes, updatedPlaylists }
 }
 
 export async function renameRecording(id: string, name: string): Promise<LibraryItem | null> {

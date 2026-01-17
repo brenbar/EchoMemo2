@@ -149,7 +149,7 @@ test('user can create a playlist from a folder and adjust repeats', async ({ pag
 
   await page.getByRole('button', { name: 'Study Playlist' }).click()
   await expect(page).toHaveURL(/\/playlist\//)
-  await expect(page.getByText('Clip One')).toBeVisible()
+  await expect(page.locator('li', { hasText: 'Clip One' }).first()).toBeVisible()
   await expect(page.getByText(/repeats 2/i)).toBeVisible()
 })
 

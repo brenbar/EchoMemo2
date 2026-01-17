@@ -147,7 +147,7 @@ export default function RecordingRow({ recording, onOpen, onRename, onDelete, on
             ref={menuRef}
             role="menu"
             aria-label="Item actions"
-            className="absolute right-0 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white/95 p-1 text-sm shadow-lg backdrop-blur dark:border-slate-700 dark:bg-slate-900/95"
+            className="absolute right-0 top-12 z-40 w-44 rounded-xl border border-slate-200 bg-white/95 p-1 text-sm shadow-lg backdrop-blur dark:border-slate-700 dark:bg-slate-900/95"
             onClick={(e) => e.stopPropagation()}
           >
             <button

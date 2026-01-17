@@ -148,9 +148,15 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
 
   const removeItem = useCallback(
     async (id: string) => {
-      const { ids, freedBytes } = await deleteCascade(id)
-      if (ids.length === 0) return
-      setItems((prev) => sortLibraryItems(prev.filter((item) => !ids.includes(item.id))))
+      const { ids, freedBytes, updatedPlaylists } = await deleteCascade(id)
+      if (ids.length === 0 && updatedPlaylists.length === 0) return
+      setItems((prev) => {
+        const updatedMap = new Map(updatedPlaylists.map((playlist) => [playlist.id, playlist]))
+        const next = prev
+          .filter((item) => !ids.includes(item.id))
+          .map((item) => updatedMap.get(item.id) ?? item)
+        return sortLibraryItems(next)
+      })
       if (freedBytes) {
         setTotalBytes((prev) => Math.max(0, prev - freedBytes))
       }

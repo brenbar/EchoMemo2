@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Modal from '../components/Modal'
 import RecordingRow from '../components/RecordingRow'
 import { useRecordings } from '../state/RecordingsContext'
-import type { LibraryItem, LibraryItemKind } from '../types'
+import type { LibraryItem, LibraryItemKind, PlaylistMeta } from '../types'
 import { formatBytes } from '../utils/format'
 import { sortLibraryItems } from '../storage/indexedDb'
 
@@ -129,6 +129,13 @@ export default function ListPage() {
   const deleteTitle = deleteIsFolder ? 'Delete folder' : deleteIsPlaylist ? 'Delete playlist' : 'Delete recording'
   const deleteRequiresAcknowledgement = deleteIsFolder && deleteDescendantCount > 0
   const deleteButtonDisabled = deleteRequiresAcknowledgement && !deleteAcknowledged
+  const deleteTargetPlaylists = useMemo(() => {
+    if (!deleteTarget) return []
+    if (kindOf(deleteTarget) !== 'recording') return []
+    return items
+      .filter((item): item is PlaylistMeta => (item as PlaylistMeta).isPlaylist === true || item.kind === 'playlist')
+      .filter((playlist) => playlist.entries?.some((entry) => entry.recordingId === deleteTarget.id))
+  }, [deleteTarget, items])
 
   return (
     <div className="flex flex-col gap-5 pb-24 text-slate-900 dark:text-slate-100">
@@ -374,9 +381,25 @@ export default function ListPage() {
             )}
           </div>
         ) : (
-          <p className="text-sm text-slate-700 dark:text-slate-200">
-            This will remove “{deleteTarget?.name ?? 'recording'}” from your device storage. You cannot undo this action.
-          </p>
+          <div className="space-y-3 text-sm text-slate-700 dark:text-slate-200">
+            <p>
+              This will remove “{deleteTarget?.name ?? 'recording'}” from your device storage. You cannot undo this action.
+            </p>
+            {deleteTargetPlaylists.length > 0 ? (
+              <div className="space-y-2">
+                <p className="font-medium text-slate-800 dark:text-slate-100">
+                  The recording is used in these playlists, which will be updated automatically:
+                </p>
+                <ul className="list-disc space-y-1 pl-5 text-slate-700 dark:text-slate-200" data-testid="playlist-warning-list">
+                  {deleteTargetPlaylists.map((playlist) => (
+                    <li key={playlist.id}>{playlist.name}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p>No playlists currently include this recording.</p>
+            )}
+          </div>
         )}
       </Modal>
 
