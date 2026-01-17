@@ -313,23 +313,14 @@ export default function PlaylistEditorPage() {
                           <div className="text-base font-semibold text-slate-900 dark:text-slate-50">{entry.recording.name}</div>
                           <div className="text-xs text-slate-500 dark:text-slate-400">{formatDuration(entry.recording.duration)}</div>
                         </div>
-                        <div className="flex items-center justify-center gap-2 rounded-lg bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900">
-                          <button
-                            className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                            type="button"
-                            disabled={loadingExisting || entry.repeats <= 1}
-                            onClick={() => nudgeRepeats(entry.recordingId, -1)}
-                            aria-label={`Decrease repeats for ${entry.recording.name}`}
-                          >
-                            –
-                          </button>
+                        <div className="flex items-center justify-center gap-3 rounded-lg bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900">
                           <input
                             id={`repeat-${entry.recordingId}`}
                             aria-label={`Repeats for ${entry.recording.name}`}
                             inputMode="numeric"
                             pattern="[0-9]*"
                             type="text"
-                            className="w-12 rounded-md border border-slate-200 px-2 py-2 text-center text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            className="w-16 rounded-md border border-slate-200 px-2 py-2 text-center text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             value={entry.repeats}
                             disabled={loadingExisting}
                             onChange={(e) => {
@@ -337,15 +328,26 @@ export default function PlaylistEditorPage() {
                               updateRepeats(entry.recordingId, next)
                             }}
                           />
-                          <button
-                            className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                            type="button"
-                            disabled={loadingExisting}
-                            onClick={() => nudgeRepeats(entry.recordingId, 1)}
-                            aria-label={`Increase repeats for ${entry.recording.name}`}
-                          >
-                            +
-                          </button>
+                          <div className="flex flex-col gap-1">
+                            <button
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                              type="button"
+                              disabled={loadingExisting}
+                              onClick={() => nudgeRepeats(entry.recordingId, 1)}
+                              aria-label={`Increase repeats for ${entry.recording.name}`}
+                            >
+                              +
+                            </button>
+                            <button
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                              type="button"
+                              disabled={loadingExisting || entry.repeats <= 1}
+                              onClick={() => nudgeRepeats(entry.recordingId, -1)}
+                              aria-label={`Decrease repeats for ${entry.recording.name}`}
+                            >
+                              –
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
