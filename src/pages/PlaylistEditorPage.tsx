@@ -231,14 +231,14 @@ export default function PlaylistEditorPage() {
 
             {readyEntries.length > 0 && (
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-white/70 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
-                <div className="grid grid-cols-[minmax(0,1fr)_160px_80px] items-center gap-3 border-b border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-300">
+                <div className="grid grid-cols-[minmax(0,1fr)_160px_64px] items-center gap-3 border-b border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-300">
                   <span>Name</span>
                   <span className="text-center">Repeats</span>
-                  <span aria-hidden className="text-center text-transparent">Remove</span>
+                  <span className="sr-only">Remove</span>
                 </div>
                 <div className="divide-y divide-slate-200 dark:divide-slate-800">
                   {readyEntries.map((entry) => (
-                    <div key={entry.recordingId} className="grid grid-cols-[minmax(0,1fr)_160px_80px] items-center gap-3 px-4 py-3">
+                    <div key={entry.recordingId} className="grid grid-cols-[minmax(0,1fr)_160px_64px] items-center gap-3 px-4 py-3">
                       <div className="flex flex-col gap-1">
                         <div className="text-base font-semibold text-slate-900 dark:text-slate-50">{entry.recording.name}</div>
                         <div className="text-xs text-slate-500 dark:text-slate-400">{formatDuration(entry.recording.duration)}</div>
@@ -279,12 +279,27 @@ export default function PlaylistEditorPage() {
                       </div>
                       <div className="flex justify-end">
                         <button
-                          className="rounded-full bg-rose-100 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-rose-900/40 dark:text-rose-100 dark:hover:bg-rose-900/60"
+                          type="button"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-rose-100 text-rose-700 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-rose-900/40 dark:text-rose-100 dark:hover:bg-rose-900/60"
                           disabled={loadingExisting}
                           onClick={() => removeEntry(entry.recordingId)}
                           aria-label={`Remove ${entry.recording.name} from playlist`}
                         >
-                          Remove
+                          <svg
+                            aria-hidden
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            className="h-4 w-4"
+                          >
+                            <path d="M5 7h14" />
+                            <path d="M10 11v6" />
+                            <path d="M14 11v6" />
+                            <path d="M6 7V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" />
+                            <path d="M6 7v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7" />
+                          </svg>
                         </button>
                       </div>
                     </div>
