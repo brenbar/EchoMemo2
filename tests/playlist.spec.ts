@@ -97,6 +97,21 @@ async function createPlaylistAtRoot(page: Page, playlistName: string, recordingN
   await expect(page).toHaveURL(/\/playlist\//)
 }
 
+async function swipeDeleteRecording(page: Page, recordingName: string) {
+  const row = page.locator(`[data-playlist-row-name="${recordingName}"]`).first()
+  const box = await row.boundingBox()
+  if (!box) throw new Error(`Playlist row not found for ${recordingName}`)
+
+  const startX = box.x + box.width - 8
+  const endX = startX - Math.min(140, box.width - 16)
+  const y = box.y + box.height / 2
+
+  await page.mouse.move(startX, y)
+  await page.mouse.down()
+  await page.mouse.move(endX, y, { steps: 6 })
+  await page.mouse.up()
+}
+
 test.beforeEach(async ({ page }) => {
   await setupBrowserStubs(page)
 })
@@ -233,7 +248,7 @@ test('edit playlist enforces minimum recordings', async ({ page }) => {
   await playlistRow.getByRole('menuitem', { name: 'Edit' }).click()
 
   const saveButton = page.getByRole('button', { name: 'Save changes' })
-  await page.getByRole('button', { name: 'Remove Track One from playlist' }).click()
+  await swipeDeleteRecording(page, 'Track One')
 
   await expect(saveButton).toBeDisabled()
   await expect(page.getByText(/add at least two recordings/i)).toBeVisible()

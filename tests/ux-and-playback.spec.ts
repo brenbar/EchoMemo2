@@ -61,6 +61,21 @@ async function setupDefaultStubs(page: Page) {
   })
 }
 
+async function swipeDeleteRecording(page: Page, recordingName: string) {
+  const row = page.locator(`[data-playlist-row-name="${recordingName}"]`).first()
+  const box = await row.boundingBox()
+  if (!box) throw new Error(`Playlist row not found for ${recordingName}`)
+
+  const startX = box.x + box.width - 8
+  const endX = startX - Math.min(140, box.width - 16)
+  const y = box.y + box.height / 2
+
+  await page.mouse.move(startX, y)
+  await page.mouse.down()
+  await page.mouse.move(endX, y, { steps: 6 })
+  await page.mouse.up()
+}
+
 async function createRecording(page: Page, name = 'Sample clip', waitMs = 0, options?: { stay?: boolean }) {
   if (!options?.stay) {
     await page.goto('/')
@@ -308,9 +323,7 @@ test('playlist editor disables save without entries and re-disables after remova
   await expect(page.getByText('Nested Clip 2')).toBeVisible()
   await expect(saveButton).toBeEnabled()
 
-  const removeNested = page.getByRole('button', { name: 'Remove Nested Clip from playlist' })
-  await expect(removeNested).toBeVisible()
-  await removeNested.click()
+  await swipeDeleteRecording(page, 'Nested Clip')
   await expect(saveButton).toBeDisabled()
 })
 

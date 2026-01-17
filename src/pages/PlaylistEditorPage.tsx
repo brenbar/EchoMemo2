@@ -1,3 +1,4 @@
+import type React from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import Modal from '../components/Modal'
@@ -34,6 +35,11 @@ export default function PlaylistEditorPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [loadingExisting, setLoadingExisting] = useState(isEditMode)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [swipeState, setSwipeState] = useState<{ id: string | null; startX: number; translate: number }>({
+    id: null,
+    startX: 0,
+    translate: 0,
+  })
 
   const recordingsById = useMemo(() => {
     const map = new Map<string, RecordingMeta>()
@@ -161,6 +167,55 @@ export default function PlaylistEditorPage() {
     navigate(destination)
   }
 
+  const resetSwipe = () => setSwipeState({ id: null, startX: 0, translate: 0 })
+
+  const handleTouchStart = (id: string) => (event: React.TouchEvent) => {
+    const startX = event.touches[0]?.clientX ?? 0
+    setSwipeState({ id, startX, translate: 0 })
+  }
+
+  const handleTouchMove = (id: string) => (event: React.TouchEvent) => {
+    if (swipeState.id !== id) return
+    const currentX = event.touches[0]?.clientX ?? 0
+    const delta = Math.min(0, Math.max(-140, currentX - swipeState.startX))
+    setSwipeState((prev) => ({ ...prev, translate: delta }))
+  }
+
+  const handleTouchEnd = (id: string) => () => {
+    if (swipeState.id !== id) {
+      resetSwipe()
+      return
+    }
+    const shouldDelete = swipeState.translate < -80
+    resetSwipe()
+    if (shouldDelete) removeEntry(id)
+  }
+
+  const handlePointerStart = (id: string) => (event: React.PointerEvent) => {
+    if (event.pointerType === 'mouse' && event.buttons !== 1) return
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+    setSwipeState({ id, startX: event.clientX, translate: 0 })
+  }
+
+  const handlePointerMove = (id: string) => (event: React.PointerEvent) => {
+    if (swipeState.id !== id) return
+    if (event.pointerType === 'mouse' && event.buttons !== 1) return
+    const delta = Math.min(0, Math.max(-140, event.clientX - swipeState.startX))
+    setSwipeState((prev) => ({ ...prev, translate: delta }))
+  }
+
+  const handlePointerEnd = (id: string) => (event: React.PointerEvent) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    if (swipeState.id !== id) {
+      resetSwipe()
+      return
+    }
+    const shouldDelete = swipeState.translate < -80
+    resetSwipe()
+    if (shouldDelete) removeEntry(id)
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
+  }
+
   return (
     <div className="flex flex-col gap-5 text-slate-900 dark:text-slate-100">
       <div className="flex items-center justify-between gap-3">
@@ -231,76 +286,67 @@ export default function PlaylistEditorPage() {
 
             {readyEntries.length > 0 && (
               <div className="overflow-hidden rounded-xl border border-slate-200 bg-white/70 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
-                <div className="grid grid-cols-[minmax(0,1fr)_160px_64px] items-center gap-3 border-b border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-300">
+                <div className="grid grid-cols-[minmax(0,1fr)_140px] items-center gap-2 border-b border-slate-200 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-300">
                   <span>Name</span>
                   <span className="text-center">Repeats</span>
-                  <span className="sr-only">Remove</span>
                 </div>
                 <div className="divide-y divide-slate-200 dark:divide-slate-800">
                   {readyEntries.map((entry) => (
-                    <div key={entry.recordingId} className="grid grid-cols-[minmax(0,1fr)_160px_64px] items-center gap-3 px-4 py-3">
-                      <div className="flex flex-col gap-1">
-                        <div className="text-base font-semibold text-slate-900 dark:text-slate-50">{entry.recording.name}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">{formatDuration(entry.recording.duration)}</div>
+                    <div key={entry.recordingId} className="relative overflow-hidden">
+                      <div className="absolute inset-0 flex items-center justify-end pr-4 text-sm font-semibold text-rose-700 dark:text-rose-100">
+                        <span className="rounded-full bg-rose-100 px-3 py-1 shadow-sm dark:bg-rose-900/50">Delete</span>
                       </div>
-                      <div className="flex items-center justify-center gap-2 rounded-lg bg-white px-2 py-1 dark:border-slate-700 dark:bg-slate-900">
-                        <button
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                          type="button"
-                          disabled={loadingExisting || entry.repeats <= 1}
-                          onClick={() => nudgeRepeats(entry.recordingId, -1)}
-                          aria-label={`Decrease repeats for ${entry.recording.name}`}
-                        >
-                          –
-                        </button>
-                        <input
-                          id={`repeat-${entry.recordingId}`}
-                          aria-label={`Repeats for ${entry.recording.name}`}
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          type="text"
-                          className="w-14 rounded-md border border-slate-200 px-2 py-2 text-center text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                          value={entry.repeats}
-                          disabled={loadingExisting}
-                          onChange={(e) => {
-                            const next = clampRepeats(Number(e.target.value.replace(/[^0-9]/g, '')) || 0)
-                            updateRepeats(entry.recordingId, next)
-                          }}
-                        />
-                        <button
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                          type="button"
-                          disabled={loadingExisting}
-                          onClick={() => nudgeRepeats(entry.recordingId, 1)}
-                          aria-label={`Increase repeats for ${entry.recording.name}`}
-                        >
-                          +
-                        </button>
-                      </div>
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-rose-100 text-rose-700 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-rose-900/40 dark:text-rose-100 dark:hover:bg-rose-900/60"
-                          disabled={loadingExisting}
-                          onClick={() => removeEntry(entry.recordingId)}
-                          aria-label={`Remove ${entry.recording.name} from playlist`}
-                        >
-                          <svg
-                            aria-hidden
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            className="h-4 w-4"
+                      <div
+                        className="relative grid grid-cols-[minmax(0,1fr)_140px] items-center gap-2 px-3 py-3 transition-[transform] duration-150 ease-out"
+                        data-playlist-row-name={entry.recording.name}
+                        style={{ transform: `translateX(${swipeState.id === entry.recordingId ? swipeState.translate : 0}px)` }}
+                        onTouchStart={handleTouchStart(entry.recordingId)}
+                        onTouchMove={handleTouchMove(entry.recordingId)}
+                        onTouchEnd={handleTouchEnd(entry.recordingId)}
+                        onTouchCancel={handleTouchEnd(entry.recordingId)}
+                        onPointerDown={handlePointerStart(entry.recordingId)}
+                        onPointerMove={handlePointerMove(entry.recordingId)}
+                        onPointerUp={handlePointerEnd(entry.recordingId)}
+                        onPointerCancel={handlePointerEnd(entry.recordingId)}
+                      >
+                        <div className="flex flex-col gap-1">
+                          <div className="text-base font-semibold text-slate-900 dark:text-slate-50">{entry.recording.name}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">{formatDuration(entry.recording.duration)}</div>
+                        </div>
+                        <div className="flex items-center justify-center gap-2 rounded-lg bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900">
+                          <button
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                            type="button"
+                            disabled={loadingExisting || entry.repeats <= 1}
+                            onClick={() => nudgeRepeats(entry.recordingId, -1)}
+                            aria-label={`Decrease repeats for ${entry.recording.name}`}
                           >
-                            <path d="M5 7h14" />
-                            <path d="M10 11v6" />
-                            <path d="M14 11v6" />
-                            <path d="M6 7V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" />
-                            <path d="M6 7v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7" />
-                          </svg>
-                        </button>
+                            –
+                          </button>
+                          <input
+                            id={`repeat-${entry.recordingId}`}
+                            aria-label={`Repeats for ${entry.recording.name}`}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            type="text"
+                            className="w-12 rounded-md border border-slate-200 px-2 py-2 text-center text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            value={entry.repeats}
+                            disabled={loadingExisting}
+                            onChange={(e) => {
+                              const next = clampRepeats(Number(e.target.value.replace(/[^0-9]/g, '')) || 0)
+                              updateRepeats(entry.recordingId, next)
+                            }}
+                          />
+                          <button
+                            className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                            type="button"
+                            disabled={loadingExisting}
+                            onClick={() => nudgeRepeats(entry.recordingId, 1)}
+                            aria-label={`Increase repeats for ${entry.recording.name}`}
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
