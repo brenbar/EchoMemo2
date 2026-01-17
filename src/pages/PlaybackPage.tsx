@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useRecordings } from '../state/RecordingsContext'
 import type { RecordingWithData } from '../types'
 import { formatDuration } from '../utils/format'
-import { useAudioContinuity } from '../utils/audioContinuity'
 
 export default function PlaybackPage() {
   const { id } = useParams<{ id: string }>()
@@ -20,7 +19,6 @@ export default function PlaybackPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const scrubRef = useRef<HTMLDivElement | null>(null)
   const isScrubbingRef = useRef(false)
-  const { ensureFillerPlaying, stopFiller, pauseAll } = useAudioContinuity(audioRef)
 
   // Web Audio primitives for seamless looping without filler tracks.
   const audioCtxRef = useRef<AudioContext | null>(null)
@@ -32,7 +30,6 @@ export default function PlaybackPage() {
 
   function stopAll() {
     pauseSource()
-    pauseAll()
     if (audioCtxRef.current) {
       audioCtxRef.current.close().catch(() => {})
       audioCtxRef.current = null
@@ -51,7 +48,6 @@ export default function PlaybackPage() {
     if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
     rafRef.current = null
     setIsPlaying(false)
-    stopFiller(150)
   }
 
   function startSource(offset = 0) {
@@ -67,7 +63,6 @@ export default function PlaybackPage() {
     if (!bufferRef.current) return
     try {
       void ctx.resume()
-      ensureFillerPlaying()
       const src = ctx.createBufferSource()
       const bufDur = bufferRef.current.duration || 0
       const startOffset = bufDur ? Math.max(0, Math.min(offset, bufDur)) : offset
@@ -82,7 +77,6 @@ export default function PlaybackPage() {
       tick()
     } catch {
       setAutoPlayBlocked(true)
-      stopFiller(0)
     }
   }
 
