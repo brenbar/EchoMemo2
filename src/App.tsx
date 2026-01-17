@@ -3,6 +3,8 @@ import { Route, Routes } from 'react-router-dom'
 import InstallPwaButton from './components/InstallPwaButton.tsx'
 import ListPage from './pages/ListPage.tsx'
 import PlaybackPage from './pages/PlaybackPage.tsx'
+import PlaylistEditorPage from './pages/PlaylistEditorPage.tsx'
+import PlaylistPlaybackPage from './pages/PlaylistPlaybackPage.tsx'
 import RecordPage from './pages/RecordPage.tsx'
 
 function useIsPwaInstalled() {
@@ -63,6 +65,8 @@ export default function App() {
           <Route path="/" element={<ListPage />} />
           <Route path="/folder/:id" element={<ListPage />} />
           <Route path="/record" element={<RecordPage />} />
+          <Route path="/playlist/new" element={<PlaylistEditorPage />} />
+          <Route path="/playlist/:id" element={<PlaylistPlaybackPage />} />
           <Route path="/play/:id" element={<PlaybackPage />} />
         </Routes>
       </main>

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { LibraryItem, RecordingWithData } from '../types'
+import type { LibraryItem, PlaylistWithData, RecordingWithData } from '../types'
 import {
   deleteRecording,
   getRecordingWithData,
@@ -9,8 +9,10 @@ import {
   listFolders,
   renameRecording,
   saveFolder,
+  savePlaylist,
   saveRecording,
   updateParent,
+  getPlaylistWithData,
 } from '../storage/indexedDb'
 
 interface RecordingsContextValue {
@@ -22,11 +24,13 @@ interface RecordingsContextValue {
   setActiveParent(parentId: string | null): Promise<void>
   addRecording(input: { name: string; duration: number; blob: Blob; scriptText: string; parent?: string | null }): Promise<void>
   addFolder(input: { name: string; parent?: string | null }): Promise<void>
+  addPlaylist(input: { name: string; entries: { recordingId: string; repeats: number }[]; parent?: string | null }): Promise<void>
   removeItem(id: string): Promise<void>
   updateName(id: string, name: string): Promise<void>
   moveItem(id: string, parent: string | null): Promise<void>
   listFolders(parentId?: string | null): Promise<LibraryItem[]>
   fetchRecording(id: string): Promise<RecordingWithData | null>
+  fetchPlaylist(id: string): Promise<PlaylistWithData | null>
 }
 
 const RecordingsContext = createContext<RecordingsContextValue | undefined>(undefined)
@@ -83,6 +87,15 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
     [activeParentId],
   )
 
+  const addPlaylist = useCallback(
+    async (input: { name: string; entries: { recordingId: string; repeats: number }[]; parent?: string | null }) => {
+      const effectiveParent = input.parent ?? activeParentId ?? null
+      const playlist = await savePlaylist({ ...input, parent: effectiveParent })
+      setItems((prev) => (effectiveParent === activeParentId ? [playlist, ...prev] : prev))
+    },
+    [activeParentId],
+  )
+
   const removeItem = useCallback(async (id: string) => {
     await deleteRecording(id)
     let removedSize = 0
@@ -125,6 +138,7 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
   const listFoldersForParent = useCallback((parentId: string | null = null) => listFolders(parentId), [])
 
   const fetchRecording = useCallback((id: string) => getRecordingWithData(id), [])
+  const fetchPlaylist = useCallback((id: string) => getPlaylistWithData(id), [])
 
   const value = useMemo(
     () => ({
@@ -136,13 +150,15 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
       setActiveParent,
       addRecording,
       addFolder,
+      addPlaylist,
       removeItem,
       updateName,
       moveItem,
       listFolders: listFoldersForParent,
       fetchRecording,
+      fetchPlaylist,
     }),
-    [items, totalBytes, loading, activeParentId, refresh, setActiveParent, addRecording, addFolder, removeItem, updateName, moveItem, listFoldersForParent, fetchRecording],
+    [items, totalBytes, loading, activeParentId, refresh, setActiveParent, addRecording, addFolder, addPlaylist, removeItem, updateName, moveItem, listFoldersForParent, fetchRecording, fetchPlaylist],
   )
 
   return <RecordingsContext.Provider value={value}>{children}</RecordingsContext.Provider>

@@ -1,10 +1,19 @@
-import type { FolderItem, LibraryItem, RecordingMeta, RecordingWithData } from '../types'
+import type {
+  FolderItem,
+  LibraryItem,
+  LibraryItemKind,
+  PlaylistEntry,
+  PlaylistMeta,
+  PlaylistWithData,
+  RecordingMeta,
+  RecordingWithData,
+} from '../types'
 
 const DB_NAME = 'EchoMemoDB'
 const STORE_NAME = 'recordings'
 const DB_VERSION = 1
 
-type RecordingRecord = RecordingWithData | FolderItem
+type RecordingRecord = RecordingWithData | FolderItem | PlaylistMeta
 type LegacyRecordingRecord = Partial<RecordingRecord> & {
   startTime?: number | string
   endTime?: number | string
@@ -71,13 +80,47 @@ function coalesceRecord(record: LegacyRecordingRecord): RecordingRecord {
   const createdAt = toNumber(record.createdAt) ?? Date.now()
   const parent = typeof record.parent === 'string' ? record.parent : null
 
-  if (record.isFolder) {
+  const kind: LibraryItemKind = record.kind
+    ? (record.kind as LibraryItemKind)
+    : record.isFolder
+      ? 'folder'
+      : record.isPlaylist
+        ? 'playlist'
+        : 'recording'
+
+  if (kind === 'folder' || record.isFolder) {
     return {
       id,
       name: record.name ?? 'Folder',
       createdAt,
       parent,
+      kind: 'folder',
       isFolder: true,
+    }
+  }
+
+  if (kind === 'playlist' || record.isPlaylist) {
+    const entries = Array.isArray(record.entries)
+      ? record.entries
+          .map((entry) => {
+            if (!entry || typeof entry !== 'object') return null
+            const recordingId = typeof entry.recordingId === 'string' ? entry.recordingId : null
+            const repeats = toNumber((entry as PlaylistEntry).repeats) ?? 1
+            if (!recordingId) return null
+            return { recordingId, repeats: Math.max(1, repeats) }
+          })
+          .filter(Boolean)
+      : []
+
+    return {
+      id,
+      name: record.name ?? 'Playlist',
+      createdAt,
+      parent,
+      kind: 'playlist',
+      isPlaylist: true,
+      isFolder: false,
+      entries: entries as PlaylistEntry[],
     }
   }
 
@@ -86,6 +129,8 @@ function coalesceRecord(record: LegacyRecordingRecord): RecordingRecord {
     id,
     createdAt,
     parent,
+    kind: 'recording',
+    isPlaylist: false,
     isFolder: false,
   }
 
@@ -115,17 +160,24 @@ function filterByParent(records: RecordingRecord[], parent: string | null): Reco
   return records.filter((record) => (record.parent ?? null) === (parent ?? null))
 }
 
+function getKind(item: RecordingRecord): LibraryItemKind {
+  if (item.kind) return item.kind
+  if (item.isFolder) return 'folder'
+  if ((item as PlaylistMeta).isPlaylist) return 'playlist'
+  return 'recording'
+}
+
 function sortForDisplay(a: RecordingRecord, b: RecordingRecord): number {
-  const aFolder = a.isFolder === true
-  const bFolder = b.isFolder === true
-  if (aFolder && !bFolder) return -1
-  if (!aFolder && bFolder) return 1
+  const order: Record<LibraryItemKind, number> = { folder: 0, playlist: 1, recording: 2 }
+  const kindA = getKind(a)
+  const kindB = getKind(b)
+  if (order[kindA] !== order[kindB]) return order[kindA] - order[kindB]
   return (b.createdAt ?? 0) - (a.createdAt ?? 0)
 }
 
 export async function listRecordings(parentId: string | null = null): Promise<LibraryItem[]> {
   const all = await listAllItems()
-  return filterByParent(all, parentId)
+  return filterByParent(all, parentId).filter((item) => getKind(item as RecordingRecord) === 'recording')
 }
 
 export async function listAllItems(): Promise<LibraryItem[]> {
@@ -138,6 +190,7 @@ export async function listAllItems(): Promise<LibraryItem[]> {
     .map((record) => coalesceRecord(record))
     .map((record) => {
       if (record.isFolder) return record
+      if ((record as PlaylistMeta).kind === 'playlist' || (record as PlaylistMeta).isPlaylist) return record
       const { blob: _blob, ...meta } = record
       void _blob
       return meta
@@ -163,6 +216,8 @@ export async function saveRecording(input: {
     createdAt: Date.now(),
     size: input.blob.size,
     parent: input.parent ?? null,
+    kind: 'recording',
+    isPlaylist: false,
     ...input,
     isFolder: false,
   }
@@ -181,7 +236,29 @@ export async function saveFolder(input: { name: string; parent?: string | null }
     name: input.name,
     createdAt: Date.now(),
     parent: input.parent ?? null,
+    kind: 'folder',
     isFolder: true,
+  }
+  const tx = db.transaction(STORE_NAME, 'readwrite')
+  tx.objectStore(STORE_NAME).put(record)
+  await txDone(tx)
+  return record
+}
+
+export async function savePlaylist(input: { name: string; parent?: string | null; entries: PlaylistEntry[] }): Promise<PlaylistMeta> {
+  const db = await getDb()
+  const sanitizedEntries = input.entries.map((entry) => ({
+    recordingId: entry.recordingId,
+    repeats: Math.max(1, Math.round(entry.repeats || 1)),
+  }))
+  const record: PlaylistMeta = {
+    id: safeId(),
+    name: input.name,
+    createdAt: Date.now(),
+    parent: input.parent ?? null,
+    kind: 'playlist',
+    isPlaylist: true,
+    entries: sanitizedEntries,
   }
   const tx = db.transaction(STORE_NAME, 'readwrite')
   tx.objectStore(STORE_NAME).put(record)
@@ -209,7 +286,7 @@ export async function getRecordingWithData(id: string): Promise<RecordingWithDat
   await txDone(tx)
   if (!record) return null
   const normalized = coalesceRecord(record)
-  if (normalized.isFolder) return null
+  if (normalized.isFolder || (normalized as PlaylistMeta).isPlaylist) return null
   return normalized
 }
 
@@ -233,7 +310,7 @@ export async function renameRecording(id: string, name: string): Promise<Library
   record.name = name
   store.put(record)
   await txDone(tx)
-  if (record.isFolder) return record
+  if (record.isFolder || (record as PlaylistMeta).isPlaylist) return record
   const { blob: _blob, ...meta } = record
   void _blob
   return meta
@@ -252,7 +329,7 @@ export async function updateParent(id: string, parent: string | null): Promise<L
   record.parent = parent
   store.put(record)
   await txDone(tx)
-  if (record.isFolder) return record
+  if (record.isFolder || (record as PlaylistMeta).isPlaylist) return record
   const { blob: _blob, ...meta } = record
   void _blob
   return meta
@@ -270,7 +347,7 @@ export async function getTotalSize(): Promise<number> {
       const cursor = cursorRequest.result
       if (cursor) {
         const value = cursor.value as RecordingRecord
-        if (value.isFolder !== true) {
+        if (getKind(value) === 'recording') {
           total += value?.size ?? 0
         }
         cursor.continue()
@@ -283,4 +360,25 @@ export async function getTotalSize(): Promise<number> {
     tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted'))
     tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction failed'))
   })
+}
+
+export async function getPlaylistWithData(id: string): Promise<PlaylistWithData | null> {
+  const db = await getDb()
+  const tx = db.transaction(STORE_NAME, 'readonly')
+  const store = tx.objectStore(STORE_NAME)
+  const record = (await wrapRequest(store.get(id))) as RecordingRecord | undefined
+  await txDone(tx)
+  if (!record) return null
+  const normalized = coalesceRecord(record)
+  if (!('entries' in normalized)) return null
+
+  const resolved: PlaylistWithData['resolved'] = []
+  for (const entry of normalized.entries) {
+    const rec = await getRecordingWithData(entry.recordingId)
+    if (rec) {
+      resolved.push({ recording: rec, repeats: Math.max(1, Math.round(entry.repeats || 1)) })
+    }
+  }
+
+  return { ...(normalized as PlaylistMeta), resolved }
 }

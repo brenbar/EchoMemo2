@@ -65,6 +65,13 @@ export default function ListPage() {
     void loadFolders(parentId)
   }, [moveTarget, browseParent])
 
+  const kindOf = (item: LibraryItem) => {
+    if (item.kind) return item.kind
+    if (item.isFolder) return 'folder'
+    if ((item as any).isPlaylist) return 'playlist'
+    return 'recording'
+  }
+
   return (
     <div className="flex flex-col gap-5 pb-24 text-slate-900 dark:text-slate-100">
       <section className="flex flex-col gap-4 rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
@@ -115,39 +122,52 @@ export default function ListPage() {
             No items yet. Add a folder or create a recording.
           </div>
         )}
-        {!loading && displayedItems.map((recording) => (
-          <RecordingRow
-            key={recording.id}
-            recording={recording}
-            onOpen={() => {
-              if (recording.isFolder) {
-                navigate(`/folder/${recording.id}`)
-              } else {
-                navigate(`/play/${recording.id}`)
-              }
-            }}
-            onRename={() => {
-              setRenameTarget(recording)
-              setRenameValue(recording.name)
-            }}
-            onDelete={() => setDeleteTarget(recording)}
-            onMove={() => {
-              setMoveTarget(recording)
-              setBrowseParent(recording.parent ?? null)
-              setBrowsePath([])
-            }}
-          />
-        ))}
+        {!loading && displayedItems.map((recording) => {
+          const kind = kindOf(recording)
+          return (
+            <RecordingRow
+              key={recording.id}
+              recording={recording}
+              onOpen={() => {
+                if (kind === 'folder') {
+                  navigate(`/folder/${recording.id}`)
+                } else if (kind === 'playlist') {
+                  navigate(`/playlist/${recording.id}`)
+                } else {
+                  navigate(`/play/${recording.id}`)
+                }
+              }}
+              onRename={() => {
+                setRenameTarget(recording)
+                setRenameValue(recording.name)
+              }}
+              onDelete={() => setDeleteTarget(recording)}
+              onMove={() => {
+                setMoveTarget(recording)
+                setBrowseParent(recording.parent ?? null)
+                setBrowsePath([])
+              }}
+            />
+          )
+        })}
       </section>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200/80 bg-white/90 backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/90">
         <div className="mx-auto flex w-full max-w-5xl items-stretch px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-          <button
-            className="w-full rounded-lg bg-indigo-600 my-6 py-3 text-base font-semibold text-white shadow-md transition hover:bg-indigo-500"
-            onClick={() => navigate('/record', { state: { parentId: activeParentId } })}
-          >
-            New recording
-          </button>
+          <div className="my-4 flex w-full gap-3">
+            <button
+              className="w-1/2 rounded-lg bg-slate-900 px-4 py-3 text-base font-semibold text-white shadow-md transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+              onClick={() => navigate('/playlist/new', { state: { parentId: activeParentId } })}
+            >
+              New playlist
+            </button>
+            <button
+              className="w-1/2 rounded-lg bg-indigo-600 px-4 py-3 text-base font-semibold text-white shadow-md transition hover:bg-indigo-500"
+              onClick={() => navigate('/record', { state: { parentId: activeParentId } })}
+            >
+              New recording
+            </button>
+          </div>
         </div>
       </div>
 

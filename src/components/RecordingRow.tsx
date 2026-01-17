@@ -1,5 +1,5 @@
 import { formatBytes, formatDuration } from '../utils/format'
-import type { LibraryItem } from '../types'
+import type { LibraryItem, PlaylistMeta } from '../types'
 
 interface Props {
   recording: LibraryItem
@@ -11,6 +11,9 @@ interface Props {
 
 export default function RecordingRow({ recording, onOpen, onRename, onDelete, onMove }: Props) {
   const isFolder = recording.isFolder === true
+  const isPlaylist = (recording as PlaylistMeta).isPlaylist === true || recording.kind === 'playlist'
+  const displayKind = isFolder ? 'Folder' : isPlaylist ? 'Playlist' : 'Recording'
+  const playlistEntries = isPlaylist ? (recording as PlaylistMeta).entries?.length ?? 0 : 0
 
   return (
     <div
@@ -36,6 +39,21 @@ export default function RecordingRow({ recording, onOpen, onRename, onDelete, on
             >
               <path d="M3 18.5V7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" />
             </svg>
+          ) : isPlaylist ? (
+            <svg
+              aria-hidden
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              className="h-5 w-5"
+            >
+              <path d="M5 5h14" />
+              <path d="M5 10h10" />
+              <path d="M5 15h14" />
+              <circle cx="16" cy="18" r="2" />
+            </svg>
           ) : (
             <svg
               aria-hidden
@@ -54,7 +72,9 @@ export default function RecordingRow({ recording, onOpen, onRename, onDelete, on
           <span>{recording.name}</span>
         </div>
         <div className="text-xs text-slate-500 dark:text-slate-400">
-          {isFolder ? 'Folder' : `${formatDuration(recording.duration)} · ${formatBytes(recording.size)}`}
+          {isFolder && displayKind}
+          {isPlaylist && `${displayKind} · ${playlistEntries} item${playlistEntries === 1 ? '' : 's'}`}
+          {!isFolder && !isPlaylist && `${formatDuration(recording.duration)} · ${formatBytes(recording.size)}`}
         </div>
       </div>
       <div className="flex gap-2">
