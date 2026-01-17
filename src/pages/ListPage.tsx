@@ -5,6 +5,7 @@ import RecordingRow from '../components/RecordingRow'
 import { useRecordings } from '../state/RecordingsContext'
 import type { LibraryItem, LibraryItemKind } from '../types'
 import { formatBytes } from '../utils/format'
+import { sortLibraryItems } from '../storage/indexedDb'
 
 export default function ListPage() {
   const navigate = useNavigate()
@@ -38,7 +39,10 @@ export default function ListPage() {
   const [availableFolders, setAvailableFolders] = useState<LibraryItem[]>([])
   const [browseLoading, setBrowseLoading] = useState(false)
 
-  const displayedItems = items.filter((item) => (item.parent ?? null) === (activeParentId ?? null))
+  const displayedItems = useMemo(
+    () => sortLibraryItems(items.filter((item) => (item.parent ?? null) === (activeParentId ?? null))),
+    [items, activeParentId],
+  )
   const currentFolder = items.find((item) => item.isFolder && item.id === activeParentId)
   const backTarget = currentFolder?.parent ? `/folder/${currentFolder.parent}` : '/'
   const activeBrowseFolder = browsePath[browsePath.length - 1]
@@ -93,7 +97,7 @@ export default function ListPage() {
   const loadFolders = async (parentId: string | null) => {
     setBrowseLoading(true)
     const folders = await listFolders(parentId)
-    setAvailableFolders(folders)
+    setAvailableFolders(sortLibraryItems(folders))
     setBrowseLoading(false)
   }
 

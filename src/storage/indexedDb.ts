@@ -213,12 +213,29 @@ function getKind(item: LibraryItem | RecordingRecord): LibraryItemKind {
   return 'recording'
 }
 
+function normalizeNameForSort(item: { name?: string }): string {
+  return (item.name ?? '').trim().toLocaleLowerCase()
+}
+
 function sortForDisplay(a: LibraryItem | RecordingRecord, b: LibraryItem | RecordingRecord): number {
   const order: Record<LibraryItemKind, number> = { folder: 0, playlist: 1, recording: 2 }
   const kindA = getKind(a)
   const kindB = getKind(b)
+
+  if (kindA === 'folder' && kindB !== 'folder') return -1
+  if (kindA !== 'folder' && kindB === 'folder') return 1
+
+  const nameA = normalizeNameForSort(a)
+  const nameB = normalizeNameForSort(b)
+  const nameCompare = nameA.localeCompare(nameB, undefined, { sensitivity: 'base' })
+  if (nameCompare !== 0) return nameCompare
+
   if (order[kindA] !== order[kindB]) return order[kindA] - order[kindB]
-  return (b.createdAt ?? 0) - (a.createdAt ?? 0)
+  return (a.createdAt ?? 0) - (b.createdAt ?? 0)
+}
+
+export function sortLibraryItems(items: LibraryItem[]): LibraryItem[] {
+  return [...items].sort(sortForDisplay)
 }
 
 export async function listRecordings(parentId: string | null = null): Promise<LibraryItem[]> {
@@ -232,15 +249,15 @@ export async function listAllItems(): Promise<LibraryItem[]> {
   const store = tx.objectStore(STORE_NAME)
   const records = (await wrapRequest(store.getAll())) as RecordingRecord[]
   await txDone(tx)
-  return records
-    .map<LibraryItem>((record) => {
+  return sortLibraryItems(
+    records.map<LibraryItem>((record) => {
       if (isFolderRecord(record)) return record
       if (isPlaylistRecord(record)) return record
       const { blob: _blob, ...meta } = record
       void _blob
       return meta
-    })
-    .sort(sortForDisplay)
+    }),
+  )
 }
 
 export async function listFolders(parentId: string | null = null): Promise<FolderItem[]> {

@@ -157,3 +157,57 @@ test('back button goes to parent folder when inside nested folder', async ({ pag
   // Child folder should be visible in the parent folder listing.
   await expect(page.getByText('Child Folder')).toBeVisible()
 })
+
+test('folders and items are alphabetized with folders first', async ({ page }) => {
+  await page.goto('/')
+
+  // Folders (intentionally created out of order).
+  await page.getByRole('button', { name: 'New folder' }).click()
+  await page.getByLabel('Folder name').fill('Zulu Folder')
+  await page.getByRole('button', { name: 'Create' }).click()
+  await page.getByRole('button', { name: 'New folder' }).click()
+  await page.getByLabel('Folder name').fill('Alpha Folder')
+  await page.getByRole('button', { name: 'Create' }).click()
+
+  // Recordings (also out of order).
+  await createRecordingInCurrentView(page, 'Beta Recording')
+  await createRecordingInCurrentView(page, 'Alpha Recording')
+
+  const rows = page.locator('div[role="button"][tabindex="0"]')
+  await expect(rows).toHaveCount(4)
+  await expect(rows.nth(0)).toContainText('Alpha Folder')
+  await expect(rows.nth(1)).toContainText('Zulu Folder')
+  await expect(rows.nth(2)).toContainText('Alpha Recording')
+  await expect(rows.nth(3)).toContainText('Beta Recording')
+})
+
+test('move modal lists folders alphabetically', async ({ page }) => {
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'New folder' }).click()
+  await page.getByLabel('Folder name').fill('Zulu Folder')
+  await page.getByRole('button', { name: 'Create' }).click()
+  await page.getByRole('button', { name: 'New folder' }).click()
+  await page.getByLabel('Folder name').fill('Alpha Folder')
+  await page.getByRole('button', { name: 'Create' }).click()
+  await page.getByRole('button', { name: 'New folder' }).click()
+  await page.getByLabel('Folder name').fill('Beta Folder')
+  await page.getByRole('button', { name: 'Create' }).click()
+
+  await createRecordingInCurrentView(page, 'Move Target')
+
+  const row = page.locator('div[role="button"][tabindex="0"]').filter({ hasText: 'Move Target' }).first()
+  await row.getByRole('button', { name: 'Item actions' }).click()
+  await page.getByRole('menuitem', { name: 'Move' }).click()
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+
+  const folderButtons = dialog.locator('div.divide-y button')
+  await expect(folderButtons).toHaveCount(3)
+  await expect(folderButtons.nth(0)).toContainText('Alpha Folder')
+  await expect(folderButtons.nth(1)).toContainText('Beta Folder')
+  await expect(folderButtons.nth(2)).toContainText('Zulu Folder')
+
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+})

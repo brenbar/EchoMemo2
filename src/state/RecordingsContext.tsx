@@ -18,6 +18,7 @@ import {
   hasHandledLegacyMigration,
   importLegacyData as importLegacyFromDb,
   markLegacyMigrationHandled,
+  sortLibraryItems,
 } from '../storage/indexedDb'
 
 type LegacyStatus = 'checking' | 'none' | 'available' | 'importing' | 'imported' | 'error'
@@ -65,10 +66,10 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async (_parentId: string | null = null) => {
     setLoading(true)
     const [list, total] = await Promise.all([listAllItems(), getTotalSize()])
-    setItems(list)
+    setItems(sortLibraryItems(list))
     setTotalBytes(total)
     setLoading(false)
-  }, [])
+  }, [sortLibraryItems])
 
   const checkLegacy = useCallback(async () => {
     setLegacyError(null)
@@ -111,28 +112,28 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
     async (input: { name: string; duration: number; blob: Blob; scriptText: string; parent?: string | null }) => {
       const effectiveParent = input.parent ?? activeParentId ?? null
       const meta = await saveRecording({ ...input, parent: effectiveParent })
-      setItems((prev) => (effectiveParent === activeParentId ? [meta, ...prev] : prev))
+      setItems((prev) => sortLibraryItems([meta, ...prev.filter((item) => item.id !== meta.id)]))
       setTotalBytes((prev) => prev + meta.size)
     },
-    [activeParentId],
+    [activeParentId, sortLibraryItems],
   )
 
   const addFolder = useCallback(
     async (input: { name: string; parent?: string | null }) => {
       const effectiveParent = input.parent ?? activeParentId ?? null
       const folder = await saveFolder({ ...input, parent: effectiveParent })
-      setItems((prev) => (effectiveParent === activeParentId ? [folder, ...prev] : prev))
+      setItems((prev) => sortLibraryItems([folder, ...prev.filter((item) => item.id !== folder.id)]))
     },
-    [activeParentId],
+    [activeParentId, sortLibraryItems],
   )
 
   const addPlaylist = useCallback(
     async (input: { name: string; entries: { recordingId: string; repeats: number }[]; parent?: string | null }) => {
       const effectiveParent = input.parent ?? activeParentId ?? null
       const playlist = await savePlaylist({ ...input, parent: effectiveParent })
-      setItems((prev) => (effectiveParent === activeParentId ? [playlist, ...prev] : prev))
+      setItems((prev) => sortLibraryItems([playlist, ...prev.filter((item) => item.id !== playlist.id)]))
     },
-    [activeParentId],
+    [activeParentId, sortLibraryItems],
   )
 
   const updatePlaylist = useCallback(
@@ -142,46 +143,45 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
       setItems((prev) => {
         const exists = prev.some((item) => item.id === updated.id)
         if (!exists) return prev
-        return prev.map((item) => (item.id === updated.id ? updated : item))
+        return sortLibraryItems(prev.map((item) => (item.id === updated.id ? updated : item)))
       })
       return updated
     },
-    [],
+    [sortLibraryItems],
   )
 
-  const removeItem = useCallback(async (id: string) => {
-    const { ids, freedBytes } = await deleteCascade(id)
-    if (ids.length === 0) return
-    setItems((prev) => prev.filter((item) => !ids.includes(item.id)))
-    if (freedBytes) {
-      setTotalBytes((prev) => Math.max(0, prev - freedBytes))
-    }
-  }, [])
+  const removeItem = useCallback(
+    async (id: string) => {
+      const { ids, freedBytes } = await deleteCascade(id)
+      if (ids.length === 0) return
+      setItems((prev) => sortLibraryItems(prev.filter((item) => !ids.includes(item.id))))
+      if (freedBytes) {
+        setTotalBytes((prev) => Math.max(0, prev - freedBytes))
+      }
+    },
+    [sortLibraryItems],
+  )
 
-  const updateName = useCallback(async (id: string, name: string) => {
-    const updated = await renameRecording(id, name)
-    if (!updated) return
-    setItems((prev) => prev.map((item) => (item.id === id ? updated : item)))
-  }, [])
+  const updateName = useCallback(
+    async (id: string, name: string) => {
+      const updated = await renameRecording(id, name)
+      if (!updated) return
+      setItems((prev) => sortLibraryItems(prev.map((item) => (item.id === id ? updated : item))))
+    },
+    [sortLibraryItems],
+  )
 
   const moveItem = useCallback(
     async (id: string, parent: string | null) => {
       const updated = await updateParent(id, parent)
       if (!updated) return
       setItems((prev) => {
-        // If the item was in the current view but moved elsewhere, drop it.
-        if (parent !== activeParentId) {
-          return prev.filter((item) => item.id !== id)
-        }
-        // Otherwise update in place.
         const exists = prev.some((item) => item.id === id)
-        if (exists) {
-          return prev.map((item) => (item.id === id ? updated : item))
-        }
-        return prev
+        if (!exists) return prev
+        return sortLibraryItems(prev.map((item) => (item.id === id ? updated : item)))
       })
     },
-    [activeParentId],
+    [sortLibraryItems],
   )
 
   const listFoldersForParent = useCallback((parentId: string | null = null) => listFolders(parentId), [])
