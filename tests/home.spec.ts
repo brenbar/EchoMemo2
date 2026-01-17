@@ -3,7 +3,7 @@ import { test, expect, Page } from '@playwright/test'
 async function setupBrowserStubs(page: Page) {
   await page.addInitScript(() => {
     // Always start fresh data for deterministic UI tests.
-    indexedDB.deleteDatabase('echo-memo-db')
+    indexedDB.deleteDatabase('EchoMemoDB')
 
     // Minimal media stubs to allow recording flow without real devices.
     class FakeMediaStreamTrack {
@@ -72,7 +72,7 @@ async function createRecording(page: Page, name = 'Sample script for testing') {
   await page.getByLabel('Recording name').fill(name)
   await page.getByRole('button', { name: 'Save & return' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Saved recordings' })).toBeVisible()
+  await expect(page.getByText('Your library')).toBeVisible()
   await expect(page.getByText(name)).toBeVisible()
   return name
 }
@@ -83,7 +83,7 @@ test.beforeEach(async ({ page }) => {
 
 test('library shows empty state', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText('No recordings yet. Tap “New recording” to create your first memory aid.')).toBeVisible()
+  await expect(page.getByText('No items yet. Add a folder or create a recording.')).toBeVisible()
 })
 
 test('user can record and see entry in library', async ({ page }) => {
@@ -98,7 +98,7 @@ test('user can rename a recording from the library', async ({ page }) => {
   await createRecording(page, original)
 
   await page.getByRole('button', { name: 'Rename', exact: true }).click()
-  await page.getByLabel('Recording name').fill(updated)
+  await page.getByLabel('Item name').fill(updated)
   await page.getByRole('button', { name: 'Save' }).click()
 
   await expect(page.getByText(updated)).toBeVisible()
@@ -123,5 +123,5 @@ test('user can delete a recording', async ({ page }) => {
   await page.getByRole('button', { name: 'Delete', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
 
-  await expect(page.getByText('No recordings yet. Tap “New recording” to create your first memory aid.')).toBeVisible()
+  await expect(page.getByText('No items yet. Add a folder or create a recording.')).toBeVisible()
 })

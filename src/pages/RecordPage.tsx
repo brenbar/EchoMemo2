@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import Modal from '../components/Modal'
 import { useRecordings } from '../state/RecordingsContext'
 import { formatDuration } from '../utils/format'
 
 export default function RecordPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { addRecording } = useRecordings()
+  const parentId = (location.state as { parentId?: string | null } | null)?.parentId ?? null
 
   const [script, setScript] = useState('')
   const [isRecording, setIsRecording] = useState(false)
@@ -71,14 +73,14 @@ export default function RecordPage() {
 
   const discardAndExit = () => {
     setShowNameModal(false)
-    navigate('/')
+    navigate(parentId ? `/folder/${parentId}` : '/')
   }
 
   const saveRecording = async () => {
     const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current })
-    await addRecording({ name: proposedName || fallbackName, duration, blob, scriptText: script })
+    await addRecording({ name: proposedName || fallbackName, duration, blob, scriptText: script, parent: parentId })
     setShowNameModal(false)
-    navigate('/')
+    navigate(parentId ? `/folder/${parentId}` : '/')
   }
 
   return (
@@ -104,7 +106,7 @@ export default function RecordPage() {
         <div className="mt-4 flex flex-wrap gap-3">
           <button
             className="rounded-full px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-            onClick={() => navigate('/')}
+            onClick={() => navigate(parentId ? `/folder/${parentId}` : '/')}
             disabled={isRecording}
           >
             Cancel

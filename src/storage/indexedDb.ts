@@ -1,10 +1,10 @@
-import type { RecordingMeta, RecordingWithData } from '../types'
+import type { FolderItem, LibraryItem, RecordingMeta, RecordingWithData } from '../types'
 
 const DB_NAME = 'EchoMemoDB'
 const STORE_NAME = 'recordings'
 const DB_VERSION = 1
 
-type RecordingRecord = RecordingWithData
+type RecordingRecord = RecordingWithData | FolderItem
 type LegacyRecordingRecord = Partial<RecordingRecord> & {
   startTime?: number | string
   endTime?: number | string
@@ -67,10 +67,26 @@ function toNumber(value: unknown): number | null {
 }
 
 function coalesceRecord(record: LegacyRecordingRecord): RecordingRecord {
-  const normalized: RecordingRecord = { ...(record as RecordingRecord) }
+  const id = record.id ?? record.name ?? safeId()
+  const createdAt = toNumber(record.createdAt) ?? Date.now()
+  const parent = typeof record.parent === 'string' ? record.parent : null
 
-  if (!normalized.id) {
-    normalized.id = record.name ?? safeId()
+  if (record.isFolder) {
+    return {
+      id,
+      name: record.name ?? 'Folder',
+      createdAt,
+      parent,
+      isFolder: true,
+    }
+  }
+
+  const normalized: RecordingWithData = {
+    ...(record as RecordingWithData),
+    id,
+    createdAt,
+    parent,
+    isFolder: false,
   }
 
   const durationValue = toNumber(record.duration)
@@ -95,19 +111,43 @@ function coalesceRecord(record: LegacyRecordingRecord): RecordingRecord {
   return normalized
 }
 
-export async function listRecordings(): Promise<RecordingMeta[]> {
+function filterByParent(records: RecordingRecord[], parent: string | null): RecordingRecord[] {
+  return records.filter((record) => (record.parent ?? null) === (parent ?? null))
+}
+
+function sortForDisplay(a: RecordingRecord, b: RecordingRecord): number {
+  const aFolder = a.isFolder === true
+  const bFolder = b.isFolder === true
+  if (aFolder && !bFolder) return -1
+  if (!aFolder && bFolder) return 1
+  return (b.createdAt ?? 0) - (a.createdAt ?? 0)
+}
+
+export async function listRecordings(parentId: string | null = null): Promise<LibraryItem[]> {
+  const all = await listAllItems()
+  return filterByParent(all, parentId)
+}
+
+export async function listAllItems(): Promise<LibraryItem[]> {
   const db = await getDb()
   const tx = db.transaction(STORE_NAME, 'readonly')
   const store = tx.objectStore(STORE_NAME)
   const records = (await wrapRequest(store.getAll())) as LegacyRecordingRecord[]
   await txDone(tx)
   return records
+    .map((record) => coalesceRecord(record))
     .map((record) => {
-      const { blob: _blob, ...meta } = coalesceRecord(record)
+      if (record.isFolder) return record
+      const { blob: _blob, ...meta } = record
       void _blob
       return meta
     })
-    .sort((a, b) => b.createdAt - a.createdAt)
+    .sort(sortForDisplay)
+}
+
+export async function listFolders(parentId: string | null = null): Promise<FolderItem[]> {
+  const items = await listAllItems()
+  return filterByParent(items, parentId).filter((item): item is FolderItem => item.isFolder === true)
 }
 
 export async function saveRecording(input: {
@@ -115,13 +155,16 @@ export async function saveRecording(input: {
   duration: number
   blob: Blob
   scriptText: string
+  parent?: string | null
 }): Promise<RecordingMeta> {
   const db = await getDb()
   const record: RecordingRecord = {
     id: safeId(),
     createdAt: Date.now(),
     size: input.blob.size,
+    parent: input.parent ?? null,
     ...input,
+    isFolder: false,
   }
   const tx = db.transaction(STORE_NAME, 'readwrite')
   tx.objectStore(STORE_NAME).put(record)
@@ -129,6 +172,21 @@ export async function saveRecording(input: {
   const { blob: _blob, ...meta } = record
   void _blob
   return meta
+}
+
+export async function saveFolder(input: { name: string; parent?: string | null }): Promise<FolderItem> {
+  const db = await getDb()
+  const record: FolderItem = {
+    id: safeId(),
+    name: input.name,
+    createdAt: Date.now(),
+    parent: input.parent ?? null,
+    isFolder: true,
+  }
+  const tx = db.transaction(STORE_NAME, 'readwrite')
+  tx.objectStore(STORE_NAME).put(record)
+  await txDone(tx)
+  return record
 }
 
 export async function getRecordingWithData(id: string): Promise<RecordingWithData | null> {
@@ -149,7 +207,10 @@ export async function getRecordingWithData(id: string): Promise<RecordingWithDat
   }
 
   await txDone(tx)
-  return record ? coalesceRecord(record) : null
+  if (!record) return null
+  const normalized = coalesceRecord(record)
+  if (normalized.isFolder) return null
+  return normalized
 }
 
 export async function deleteRecording(id: string): Promise<void> {
@@ -159,7 +220,7 @@ export async function deleteRecording(id: string): Promise<void> {
   await txDone(tx)
 }
 
-export async function renameRecording(id: string, name: string): Promise<RecordingMeta | null> {
+export async function renameRecording(id: string, name: string): Promise<LibraryItem | null> {
   const db = await getDb()
   const tx = db.transaction(STORE_NAME, 'readwrite')
   const store = tx.objectStore(STORE_NAME)
@@ -172,6 +233,26 @@ export async function renameRecording(id: string, name: string): Promise<Recordi
   record.name = name
   store.put(record)
   await txDone(tx)
+  if (record.isFolder) return record
+  const { blob: _blob, ...meta } = record
+  void _blob
+  return meta
+}
+
+export async function updateParent(id: string, parent: string | null): Promise<LibraryItem | null> {
+  const db = await getDb()
+  const tx = db.transaction(STORE_NAME, 'readwrite')
+  const store = tx.objectStore(STORE_NAME)
+  const record = (await wrapRequest(store.get(id))) as RecordingRecord | undefined
+  if (!record) {
+    tx.abort()
+    await txDone(tx).catch(() => {})
+    return null
+  }
+  record.parent = parent
+  store.put(record)
+  await txDone(tx)
+  if (record.isFolder) return record
   const { blob: _blob, ...meta } = record
   void _blob
   return meta
@@ -189,7 +270,9 @@ export async function getTotalSize(): Promise<number> {
       const cursor = cursorRequest.result
       if (cursor) {
         const value = cursor.value as RecordingRecord
-        total += value?.size ?? 0
+        if (value.isFolder !== true) {
+          total += value?.size ?? 0
+        }
         cursor.continue()
       } else {
         resolve(total)

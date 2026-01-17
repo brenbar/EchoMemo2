@@ -1,11 +1,23 @@
-export interface RecordingMeta {
+export interface LibraryItemBase {
   id: string
   name: string
+  createdAt: number
+  parent: string | null
+  isFolder?: boolean
+}
+
+export interface FolderItem extends LibraryItemBase {
+  isFolder: true
+}
+
+export interface RecordingMeta extends LibraryItemBase {
   duration: number
   size: number
   scriptText: string
-  createdAt: number
+  isFolder?: false
 }
+
+export type LibraryItem = RecordingMeta | FolderItem
 
 export interface RecordingWithData extends RecordingMeta {
   blob: Blob

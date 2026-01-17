@@ -61,6 +61,7 @@ export default function App() {
       <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 pb-12 pt-6">
         <Routes>
           <Route path="/" element={<ListPage />} />
+          <Route path="/folder/:id" element={<ListPage />} />
           <Route path="/record" element={<RecordPage />} />
           <Route path="/play/:id" element={<PlaybackPage />} />
         </Routes>
