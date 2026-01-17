@@ -77,7 +77,6 @@ export default function PlaybackPage() {
       if (audioRef.current) audioRef.current.currentTime = startOffset
       if (audioRef.current) {
         audioRef.current.muted = true
-        audioRef.current.volume = 0
         audioRef.current.loop = true
         void audioRef.current.play().catch(() => {})
       }
@@ -101,7 +100,7 @@ export default function PlaybackPage() {
       try {
         navigator.mediaSession.setPositionState({ duration: duration || buf.duration || 0, playbackRate: 1, position })
       } catch {
-        // setPositionState not supported everywhere
+        // setPositionState not supported in all browsers
       }
     }
     rafRef.current = requestAnimationFrame(tick)
@@ -128,6 +127,30 @@ export default function PlaybackPage() {
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
   }, [objectUrl])
+
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    const ms = navigator.mediaSession
+    const metadata = recording
+      ? new MediaMetadata({
+          title: recording.name,
+          artist: recording.scriptText ? recording.scriptText.slice(0, 80) : 'Memo',
+        })
+      : null
+    if (metadata) ms.metadata = metadata
+
+    const handlePlay = () => startSource(offsetRef.current)
+    const handlePause = () => pauseSource()
+    ms.setActionHandler('play', handlePlay)
+    ms.setActionHandler('pause', handlePause)
+    ms.setActionHandler('stop', handlePause)
+
+    return () => {
+      ms.setActionHandler('play', null)
+      ms.setActionHandler('pause', null)
+      ms.setActionHandler('stop', null)
+    }
+  }, [recording])
 
   useEffect(() => {
     isScrubbingRef.current = isScrubbing
@@ -179,29 +202,6 @@ export default function PlaybackPage() {
       cancelled = true
     }
   }, [objectUrl])
-
-  useEffect(() => {
-    if (!('mediaSession' in navigator)) return
-    const ms = navigator.mediaSession
-    if (recording) {
-      ms.metadata = new MediaMetadata({
-        title: recording.name,
-        artist: recording.scriptText ? recording.scriptText.slice(0, 80) : 'Memo',
-      })
-    }
-
-    const handlePlay = () => startSource(offsetRef.current)
-    const handlePause = () => pauseSource()
-    ms.setActionHandler('play', handlePlay)
-    ms.setActionHandler('pause', handlePause)
-    ms.setActionHandler('stop', handlePause)
-
-    return () => {
-      ms.setActionHandler('play', null)
-      ms.setActionHandler('pause', null)
-      ms.setActionHandler('stop', null)
-    }
-  }, [recording])
 
   useEffect(() => {
     const el = audioRef.current

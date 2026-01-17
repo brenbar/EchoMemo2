@@ -118,7 +118,6 @@ export default function PlaylistPlaybackPage() {
       if (audioRef.current) audioRef.current.currentTime = startOffset
       if (audioRef.current) {
         audioRef.current.muted = true
-        audioRef.current.volume = 0
         audioRef.current.loop = false
         void audioRef.current.play().catch(() => {})
       }
