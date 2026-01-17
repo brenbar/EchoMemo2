@@ -315,7 +315,7 @@ export default function PlaylistEditorPage() {
                           <div className="text-base font-semibold text-slate-900 dark:text-slate-50">{entry.recording.name}</div>
                           <div className="text-xs text-slate-500 dark:text-slate-400">{formatDuration(entry.recording.duration)}</div>
                         </div>
-                        <div className="flex items-center justify-center gap-3 rounded-lg bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900">
+                        <div className="flex w-full items-center justify-end gap-2 rounded-lg bg-white px-1 py-1 text-xs dark:border-slate-700 dark:bg-slate-900">
                           <input
                             id={`repeat-${entry.recordingId}`}
                             aria-label={`Repeats for ${entry.recording.name}`}
