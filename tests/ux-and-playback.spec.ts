@@ -328,7 +328,9 @@ test('move modal prevents staying put and can move item to root', async ({ page 
 
     await createRecording(page, 'Move me', 0, { stay: true })
 
-  await page.getByRole('button', { name: 'Move item' }).last().click()
+  const actionsButton = page.getByRole('button', { name: 'Item actions', exact: true }).last()
+  await actionsButton.click()
+  await page.getByRole('menuitem', { name: 'Move' }).click()
   const dialog = page.getByRole('dialog').last()
   const action = dialog.getByRole('button', { name: /Move to '.*'|Stay/ })
   await expect(action).toBeDisabled()
@@ -354,7 +356,8 @@ test('storage used updates after adding and deleting a recording', async ({ page
   const name = await createRecording(page, 'Sized Clip')
   await expect(page.getByText(/Storage used: \d+ B/)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Delete', exact: true }).click()
+  await page.getByRole('button', { name: 'Item actions', exact: true }).first().click()
+  await page.getByRole('menuitem', { name: 'Delete' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
   await expect(page.getByText('No items yet. Add a folder or create a recording.')).toBeVisible()
   await expect(page.getByText(/Storage used: 0 B/)).toBeVisible()

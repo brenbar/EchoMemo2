@@ -92,8 +92,9 @@ test('move modal disables action when staying put and updates when selecting a f
   await createFolder(page, 'Subfolder')
   await createRecordingInCurrentView(page, 'Inside clip')
 
-  const moveButton = page.getByRole('button', { name: 'Move item' }).last()
-  await moveButton.click()
+  const actionsButton = page.getByRole('button', { name: 'Item actions', exact: true }).last()
+  await actionsButton.click()
+  await page.getByRole('menuitem', { name: 'Move' }).click()
 
   const dialog = page.getByRole('dialog').last()
   await expect(dialog).toBeVisible()

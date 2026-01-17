@@ -142,7 +142,8 @@ test('user can edit a playlist from the dedicated editor view', async ({ page })
 
   await page.getByLabel('Back to list').click()
   const playlistRow = page.locator('div[role="button"]', { hasText: 'Editable List' }).first()
-  await playlistRow.getByRole('button', { name: 'Rename' }).click()
+  await playlistRow.getByRole('button', { name: 'Item actions', exact: true }).click()
+  await playlistRow.getByRole('menuitem', { name: 'Edit' }).click()
   await expect(page).toHaveURL(/\/playlist\/.*\/edit/)
   await expect(page.getByLabel('Playlist name')).toHaveValue('Editable List')
 
@@ -209,7 +210,8 @@ test('user can edit a playlist from the list row and return to its folder', asyn
   await expect(page.getByText('Folder Playlist')).toBeVisible()
 
   const playlistRow = page.locator('div[role="button"]', { hasText: 'Folder Playlist' }).first()
-  await playlistRow.getByRole('button', { name: 'Rename' }).click()
+  await playlistRow.getByRole('button', { name: 'Item actions', exact: true }).click()
+  await playlistRow.getByRole('menuitem', { name: 'Edit' }).click()
 
   await expect(page).toHaveURL(/\/playlist\/.*\/edit/)
   await expect(page.getByLabel('Playlist name')).toHaveValue('Folder Playlist')
@@ -226,7 +228,8 @@ test('edit playlist enforces minimum recordings', async ({ page }) => {
 
   await page.getByLabel('Back to list').click()
   const playlistRow = page.locator('div[role="button"]', { hasText: 'Edit Minimum' }).first()
-  await playlistRow.getByRole('button', { name: 'Rename' }).click()
+  await playlistRow.getByRole('button', { name: 'Item actions', exact: true }).click()
+  await playlistRow.getByRole('menuitem', { name: 'Edit' }).click()
 
   const saveButton = page.getByRole('button', { name: 'Save changes' })
   await page.getByRole('button', { name: 'Remove Track One from playlist' }).click()

@@ -98,12 +98,31 @@ test('user can rename a recording from the library', async ({ page }) => {
   const updated = 'Renamed recording'
   await createRecording(page, original)
 
-  await page.getByRole('button', { name: 'Rename', exact: true }).click()
+  await page.getByRole('button', { name: 'Item actions', exact: true }).first().click()
+  await page.getByRole('menuitem', { name: 'Edit' }).click()
   await page.getByLabel('Item name').fill(updated)
   await page.getByRole('button', { name: 'Save' }).click()
 
   await expect(page.getByText(updated)).toBeVisible()
   await expect(page.getByText(original)).toHaveCount(0)
+})
+
+test('row actions menu shows move, edit, and delete', async ({ page }) => {
+  const name = 'Actions demo'
+  await createRecording(page, name)
+
+  const row = page.locator('div[role="button"]', { hasText: name }).first()
+  await row.getByRole('button', { name: 'Item actions', exact: true }).click()
+
+  const menu = page.getByRole('menu', { name: 'Item actions' })
+  await expect(menu.getByRole('menuitem', { name: 'Move' })).toBeVisible()
+  await expect(menu.getByRole('menuitem', { name: 'Edit' })).toBeVisible()
+  await expect(menu.getByRole('menuitem', { name: 'Delete' })).toBeVisible()
+
+  await menu.getByRole('menuitem', { name: 'Edit' }).click()
+  await expect(page.getByLabel('Item name')).toBeVisible()
+  await page.getByRole('button', { name: 'Cancel' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
 test('user can open playback page and see script', async ({ page }) => {
@@ -121,7 +140,8 @@ test('user can delete a recording', async ({ page }) => {
   const name = 'Delete me'
   await createRecording(page, name)
 
-  await page.getByRole('button', { name: 'Delete', exact: true }).click()
+  await page.getByRole('button', { name: 'Item actions', exact: true }).first().click()
+  await page.getByRole('menuitem', { name: 'Delete' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
 
   await expect(page.getByText('No items yet. Add a folder or create a recording.')).toBeVisible()
