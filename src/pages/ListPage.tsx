@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import Modal from '../components/Modal'
 import RecordingRow from '../components/RecordingRow'
 import { useRecordings } from '../state/RecordingsContext'
-import type { LibraryItem } from '../types'
+import type { LibraryItem, LibraryItemKind } from '../types'
 import { formatBytes } from '../utils/format'
 
 export default function ListPage() {
@@ -65,10 +65,10 @@ export default function ListPage() {
     void loadFolders(parentId)
   }, [moveTarget, browseParent])
 
-  const kindOf = (item: LibraryItem) => {
+  const kindOf = (item: LibraryItem | { kind?: LibraryItemKind; isFolder?: boolean; isPlaylist?: boolean }) => {
     if (item.kind) return item.kind
-    if (item.isFolder) return 'folder'
-    if ((item as any).isPlaylist) return 'playlist'
+    if (item.isFolder === true) return 'folder'
+    if (item.isPlaylist) return 'playlist'
     return 'recording'
   }
 

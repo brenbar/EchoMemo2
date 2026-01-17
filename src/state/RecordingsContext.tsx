@@ -41,7 +41,7 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [activeParentId, setActiveParentId] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (_parentId: string | null = null) => {
     setLoading(true)
     const [list, total] = await Promise.all([listAllItems(), getTotalSize()])
     setItems(list)
@@ -101,7 +101,7 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
     let removedSize = 0
     setItems((prev) => {
       const current = prev.find((item) => item.id === id)
-      removedSize = current && !current.isFolder ? current.size : 0
+      removedSize = current && !current.isFolder && !current.isPlaylist ? current.size : 0
       return prev.filter((item) => item.id !== id)
     })
     if (removedSize) {

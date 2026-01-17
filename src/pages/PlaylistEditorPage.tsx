@@ -2,13 +2,13 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Modal from '../components/Modal'
 import { useRecordings } from '../state/RecordingsContext'
-import type { LibraryItem, RecordingMeta } from '../types'
+import type { LibraryItem, LibraryItemKind, RecordingMeta } from '../types'
 import { formatDuration } from '../utils/format'
 
-function kindOf(item: LibraryItem) {
+function kindOf(item: LibraryItem | { kind?: LibraryItemKind; isFolder?: boolean; isPlaylist?: boolean }) {
   if (item.kind) return item.kind
-  if (item.isFolder) return 'folder'
-  if ((item as any).isPlaylist) return 'playlist'
+  if (item.isFolder === true) return 'folder'
+  if (item.isPlaylist) return 'playlist'
   return 'recording'
 }
 
