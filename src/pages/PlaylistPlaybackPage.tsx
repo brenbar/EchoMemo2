@@ -84,6 +84,9 @@ export default function PlaylistPlaybackPage() {
     if (!player || !activeEntry) return
     ensureFillerPlaying()
     player.src = activeEntry.url
+    player.loop = activeEntry.repeats > 1
+    player.playsInline = true
+    player.preload = 'auto'
     player.currentTime = 0
     setCurrentTime(0)
     setDuration(activeEntry.recording.duration)
@@ -126,22 +129,21 @@ export default function PlaylistPlaybackPage() {
       const entry = list.resolved[currentIndexRef.current]
       if (!entry) return
       ensureFillerPlaying()
-      if (playCountRef.current < entry.repeats) {
-        playCountRef.current += 1
-        setPlayCount(playCountRef.current)
-        player.currentTime = 0
-        void player
-          .play()
-          .then(() => {
-            stopFiller(200)
-            setIsPlaying(true)
-          })
-          .catch(() => {
-            setIsPlaying(false)
-            stopFiller(0)
-          })
+
+      const nextCount = playCountRef.current + 1
+
+      if (nextCount <= entry.repeats) {
+        playCountRef.current = nextCount
+        setPlayCount(nextCount)
+        // Keep loop enabled so the next cycle starts without calling play().
+        player.loop = true
+        stopFiller(180)
         return
       }
+
+      player.loop = false
+      player.currentTime = 0
+      player.pause()
       jumpToIndex(currentIndexRef.current + 1)
     }
 

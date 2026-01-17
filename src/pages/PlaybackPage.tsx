@@ -46,7 +46,9 @@ export default function PlaybackPage() {
   useEffect(() => {
     if (!audioRef.current || !objectUrl) return
     audioRef.current.src = objectUrl
-    audioRef.current.loop = false
+    audioRef.current.loop = true
+    audioRef.current.playsInline = true
+    audioRef.current.preload = 'auto'
     ensureFillerPlaying()
     audioRef.current
       .play()
@@ -80,16 +82,8 @@ export default function PlaybackPage() {
     const handleEnded = () => {
       ensureFillerPlaying()
       player.currentTime = 0
-      void player
-        .play()
-        .then(() => {
-          stopFiller(200)
-          setIsPlaying(true)
-        })
-        .catch(() => {
-          setIsPlaying(false)
-          stopFiller(0)
-        })
+      stopFiller(200)
+      setIsPlaying(true)
     }
 
     player.addEventListener('play', handlePlay)
