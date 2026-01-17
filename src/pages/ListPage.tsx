@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Modal from '../components/Modal'
 import RecordingRow from '../components/RecordingRow'
@@ -29,6 +29,7 @@ export default function ListPage() {
   const [renameTarget, setRenameTarget] = useState<LibraryItem | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<LibraryItem | null>(null)
+  const [deleteAcknowledged, setDeleteAcknowledged] = useState(false)
   const [folderModalOpen, setFolderModalOpen] = useState(false)
   const [folderName, setFolderName] = useState('')
   const [moveTarget, setMoveTarget] = useState<LibraryItem | null>(null)
@@ -61,6 +62,33 @@ export default function ListPage() {
         ? 'Copying…'
         : 'Copy to new app'
 
+  const childrenByParent = useMemo(() => {
+    const map = new Map<string | null, LibraryItem[]>()
+    items.forEach((item) => {
+      const parentKey = item.parent ?? null
+      const list = map.get(parentKey) ?? []
+      list.push(item)
+      map.set(parentKey, list)
+    })
+    return map
+  }, [items])
+
+  const getDescendantCount = useCallback(
+    (targetId: string) => {
+      const stack = [...(childrenByParent.get(targetId) ?? [])]
+      let count = stack.length
+      while (stack.length > 0) {
+        const current = stack.pop()
+        if (!current) continue
+        const nested = childrenByParent.get(current.id) ?? []
+        count += nested.length
+        stack.push(...nested)
+      }
+      return count
+    },
+    [childrenByParent],
+  )
+
 
   const loadFolders = async (parentId: string | null) => {
     setBrowseLoading(true)
@@ -80,12 +108,23 @@ export default function ListPage() {
     void loadFolders(parentId)
   }, [moveTarget, browseParent])
 
+  useEffect(() => {
+    setDeleteAcknowledged(false)
+  }, [deleteTarget])
+
   const kindOf = (item: LibraryItem | { kind?: LibraryItemKind; isFolder?: boolean; isPlaylist?: boolean }) => {
     if (item.kind) return item.kind
     if (item.isFolder === true) return 'folder'
     if (item.isPlaylist) return 'playlist'
     return 'recording'
   }
+
+  const deleteIsFolder = deleteTarget?.isFolder === true
+  const deleteIsPlaylist = deleteTarget?.isPlaylist === true
+  const deleteDescendantCount = deleteIsFolder && deleteTarget ? getDescendantCount(deleteTarget.id) : 0
+  const deleteTitle = deleteIsFolder ? 'Delete folder' : deleteIsPlaylist ? 'Delete playlist' : 'Delete recording'
+  const deleteRequiresAcknowledgement = deleteIsFolder && deleteDescendantCount > 0
+  const deleteButtonDisabled = deleteRequiresAcknowledgement && !deleteAcknowledged
 
   return (
     <div className="flex flex-col gap-5 pb-24 text-slate-900 dark:text-slate-100">
@@ -286,8 +325,11 @@ export default function ListPage() {
 
       <Modal
         open={Boolean(deleteTarget)}
-        title="Delete recording"
-        onClose={() => setDeleteTarget(null)}
+        title={deleteTitle}
+        onClose={() => {
+          setDeleteTarget(null)
+          setDeleteAcknowledged(false)
+        }}
         footer={
           <>
             <button
@@ -297,10 +339,12 @@ export default function ListPage() {
               Cancel
             </button>
             <button
-              className="rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500"
+              className="rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:bg-rose-400 dark:disabled:bg-rose-800"
+              disabled={deleteButtonDisabled}
               onClick={async () => {
                 if (deleteTarget) await removeItem(deleteTarget.id)
                 setDeleteTarget(null)
+                setDeleteAcknowledged(false)
               }}
             >
               Delete
@@ -308,9 +352,28 @@ export default function ListPage() {
           </>
         }
       >
-        <p className="text-sm text-slate-700 dark:text-slate-200">
-          This will remove “{deleteTarget?.name ?? 'recording'}” from your device storage. You cannot undo this action.
-        </p>
+        {deleteIsFolder ? (
+          <div className="space-y-3 text-sm text-slate-700 dark:text-slate-200">
+            <p>
+              This will remove “{deleteTarget?.name ?? 'folder'}” and its nested contents forever. {deleteDescendantCount > 0 ? `${deleteDescendantCount} item${deleteDescendantCount === 1 ? '' : 's'} inside will also be deleted.` : 'This folder is empty.'}
+            </p>
+            {deleteRequiresAcknowledgement && (
+              <label className="flex items-start gap-2 font-medium text-rose-700 dark:text-rose-200">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500 dark:border-slate-600"
+                  checked={deleteAcknowledged}
+                  onChange={(e) => setDeleteAcknowledged(e.target.checked)}
+                />
+                <span>I understand this will permanently delete this folder and all nested items.</span>
+              </label>
+            )}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-700 dark:text-slate-200">
+            This will remove “{deleteTarget?.name ?? 'recording'}” from your device storage. You cannot undo this action.
+          </p>
+        )}
       </Modal>
 
       <Modal

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 import type { LibraryItem, PlaylistMeta, PlaylistWithData, RecordingWithData } from '../types'
 import {
-  deleteRecording,
+  deleteCascade,
   getRecordingWithData,
   getTotalSize,
   listAllItems,
@@ -150,15 +150,11 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
   )
 
   const removeItem = useCallback(async (id: string) => {
-    await deleteRecording(id)
-    let removedSize = 0
-    setItems((prev) => {
-      const current = prev.find((item) => item.id === id)
-      removedSize = current && !current.isFolder && !current.isPlaylist ? current.size : 0
-      return prev.filter((item) => item.id !== id)
-    })
-    if (removedSize) {
-      setTotalBytes((prev) => Math.max(0, prev - removedSize))
+    const { ids, freedBytes } = await deleteCascade(id)
+    if (ids.length === 0) return
+    setItems((prev) => prev.filter((item) => !ids.includes(item.id)))
+    if (freedBytes) {
+      setTotalBytes((prev) => Math.max(0, prev - freedBytes))
     }
   }, [])
 

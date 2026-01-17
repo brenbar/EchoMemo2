@@ -367,6 +367,49 @@ export async function deleteRecording(id: string): Promise<void> {
   await txDone(tx)
 }
 
+export async function deleteCascade(
+  id: string,
+): Promise<{ ids: string[]; freedBytes: number }> {
+  const db = await getDb()
+  const tx = db.transaction(STORE_NAME, 'readwrite')
+  const store = tx.objectStore(STORE_NAME)
+
+  const records = (await wrapRequest(store.getAll())) as RecordingRecord[]
+  const byParent = new Map<string | null, RecordingRecord[]>()
+  const byId = new Map<string, RecordingRecord>()
+
+  for (const record of records) {
+    const parentKey = record.parent ?? null
+    const siblings = byParent.get(parentKey) ?? []
+    siblings.push(record)
+    byParent.set(parentKey, siblings)
+    byId.set(record.id, record)
+  }
+
+  const ids: string[] = []
+  let freedBytes = 0
+
+  const visit = (targetId: string) => {
+    const record = byId.get(targetId)
+    if (!record) return
+    ids.push(targetId)
+    if (isRecordingRecord(record)) {
+      freedBytes += record.size ?? 0
+    }
+    const children = byParent.get(targetId) ?? []
+    for (const child of children) visit(child.id)
+  }
+
+  visit(id)
+
+  for (const targetId of ids) {
+    store.delete(targetId)
+  }
+
+  await txDone(tx)
+  return { ids, freedBytes }
+}
+
 export async function renameRecording(id: string, name: string): Promise<LibraryItem | null> {
   const db = await getDb()
   const tx = db.transaction(STORE_NAME, 'readwrite')
