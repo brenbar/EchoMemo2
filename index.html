@@ -1690,16 +1690,23 @@
         }); // End DOMContentLoaded
     </script>
     
-    <!-- Service Worker Registration -->
+    <!-- Service Worker Registration (bridge-safe) -->
     <script>
-        if ('serviceWorker' in navigator && !window.__ECHOMEMO_DISABLE_SW__) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').then(registration => {
-                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                }, err => {
-                    console.log('ServiceWorker registration failed: ', err);
-                });
+        const swDisabled = Boolean(window.__ECHOMEMO_DISABLE_SW__);
+
+        if ('serviceWorker' in navigator && !swDisabled) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker
+            .register('./sw.js')
+            .then((registration) => {
+                console.log('ServiceWorker registration successful with scope:', registration.scope);
+            })
+            .catch((err) => {
+                console.log('ServiceWorker registration failed:', err);
             });
+        });
+        } else {
+        console.log('Service worker skipped.');
         }
     </script>
 </body>
