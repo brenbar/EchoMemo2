@@ -1,4 +1,5 @@
 // sw.js - Service Worker for EchoMemo
+// force update: Jan 17, 2026
 
 const CACHE_NAME = 'echomemo-cache-v1';
 const urlsToCache = [
