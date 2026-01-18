@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>EchoMemo Recovery</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: #0b1220;
+        color: #e5e7eb;
+      }
+      .card {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 20px;
+        border: 1px solid #243047;
+        border-radius: 16px;
+        background: #0f172a;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 20px;
+      }
+      p {
+        margin: 8px 0;
+        line-height: 1.45;
+        color: #cbd5e1;
+      }
+      code {
+        background: #111827;
+        border: 1px solid #243047;
+        padding: 2px 6px;
+        border-radius: 6px;
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+      }
+      button {
+        background: #4f46e5;
+        color: white;
+        border: none;
+        padding: 10px 14px;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button.secondary {
+        background: #334155;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .log {
+        margin-top: 16px;
+        padding: 12px;
+        border-radius: 12px;
+        background: #0b1220;
+        border: 1px solid #243047;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+          monospace;
+        font-size: 12px;
+        color: #93c5fd;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>EchoMemo Recovery</h1>
+      <p>
+        If your installed EchoMemo shows a blank screen after a deploy, this page clears Service Workers and Cache Storage for
+        <code id="origin"></code>.
+      </p>
+      <p>
+        After cleanup, it reloads you back to the app base path.
+      </p>
+
+      <div class="row">
+        <button id="run">Run cleanup</button>
+        <button id="reload" class="secondary">Reload app</button>
+      </div>
+
+      <div id="log" class="log" aria-live="polite"></div>
+    </div>
+
+    <script>
+      const logEl = document.getElementById('log');
+      const originEl = document.getElementById('origin');
+      const runBtn = document.getElementById('run');
+      const reloadBtn = document.getElementById('reload');
+
+      originEl.textContent = location.origin;
+
+      function basePathFromLocation() {
+        // Works for GitHub Pages subpath apps: /EchoMemo2/nuke.html -> /EchoMemo2/
+        const pathname = location.pathname;
+        return pathname.replace(/\/nuke\.html(?:$|\?.*$)/, '/');
+      }
+
+      function log(line) {
+        logEl.textContent += `${line}\n`;
+      }
+
+      async function cleanup() {
+        runBtn.disabled = true;
+        logEl.textContent = '';
+        log(`Starting cleanup for origin: ${location.origin}`);
+
+        if (!('serviceWorker' in navigator)) {
+          log('No serviceWorker support in this browser.');
+        } else {
+          try {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            log(`Found ${regs.length} SW registration(s). Unregistering...`);
+            const results = await Promise.all(regs.map((r) => r.unregister().catch(() => false)));
+            log(`Unregister results: ${JSON.stringify(results)}`);
+          } catch (e) {
+            log(`Failed to unregister SWs: ${String(e)}`);
+          }
+        }
+
+        if (!('caches' in window)) {
+          log('No Cache Storage support in this browser.');
+        } else {
+          try {
+            const names = await caches.keys();
+            log(`Found ${names.length} cache(s): ${names.join(', ') || '(none)'}`);
+            await Promise.all(names.map((name) => caches.delete(name)));
+            log('Deleted caches.');
+          } catch (e) {
+            log(`Failed to clear caches: ${String(e)}`);
+          }
+        }
+
+        // Reload back to the app base path with a cache-busting query param.
+        const basePath = basePathFromLocation();
+        const url = new URL(location.href);
+        url.pathname = basePath;
+        url.searchParams.set('sw_nuked', '1');
+        url.searchParams.set('t', String(Date.now()));
+        log(`Reloading to: ${url.toString()}`);
+        location.replace(url.toString());
+      }
+
+      runBtn.addEventListener('click', () => void cleanup());
+      reloadBtn.addEventListener('click', () => {
+        const basePath = basePathFromLocation();
+        const url = new URL(location.href);
+        url.pathname = basePath;
+        url.searchParams.set('t', String(Date.now()));
+        location.assign(url.toString());
+      });
+
+      // Auto-run when opened with ?autorun=1
+      if (new URLSearchParams(location.search).get('autorun') === '1') {
+        void cleanup();
+      } else {
+        log('Ready. Tap “Run cleanup”.');
+      }
+    </script>
+  </body>
+</html>
