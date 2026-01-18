@@ -9,49 +9,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>EchoMemo</title>
-
-    <script>
-      (function() {
-        const logContainer = document.createElement('div');
-        logContainer.id = 'debug-console';
-        logContainer.style.cssText = `
-          position: fixed; bottom: 0; left: 0; width: 100%; height: 120px;
-          background: rgba(0, 0, 0, 0.85); color: #00ff00; font-family: monospace;
-          font-size: 10px; overflow-y: scroll; z-index: 999999; 
-          padding: 5px; border-top: 2px solid #334155; pointer-events: auto;
-        `;
-        // Double tap the log area to hide it
-        logContainer.onclick = (e) => {
-          if (e.detail === 2) logContainer.style.display = 'none';
-        };
-        
-        document.addEventListener('DOMContentLoaded', () => {
-          document.body.appendChild(logContainer);
-        });
-
-        function addToScreen(msg, type) {
-          const line = document.createElement('div');
-          line.style.color = type === 'error' ? '#f87171' : type === 'warn' ? '#fbbf24' : '#4ade80';
-          line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-          logContainer.appendChild(line);
-          logContainer.scrollTop = logContainer.scrollHeight;
-        }
-
-        ['log', 'warn', 'error'].forEach(method => {
-          const original = console[method];
-          console[method] = function(...args) {
-            original.apply(console, args);
-            const message = args.map(arg => 
-              arg instanceof Error ? arg.stack : typeof arg === 'object' ? JSON.stringify(arg) : arg
-            ).join(' ');
-            addToScreen(message, method);
-          };
-        });
-
-        window.onerror = (msg, url, line) => console.error(`ERR: ${msg} (Line: ${line})`);
-        window.onunhandledrejection = (event) => console.error(`PROMISE ERR: ${event.reason}`);
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>
