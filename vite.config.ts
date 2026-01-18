@@ -10,7 +10,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
+      // Auto-check for updates; we control install UX ourselves via virtual:pwa-register.
+      registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'EchoMemo192.png', 'EchoMemo512.png'],
       manifest: {
         name: 'EchoMemo',
@@ -51,8 +52,13 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Make updates apply promptly and reduce "stuck on old shell" risk.
+        clientsClaim: true,
+        skipWaiting: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,webmanifest}'],
         navigateFallback: 'index.html',
+        // Ensure SPA navigation fallback works under GitHub Pages subpaths like /EchoMemo2/.
+        navigateFallbackAllowlist: [new RegExp(`^${basePath}`)],
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.destination === 'document',
