@@ -5,6 +5,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EchoMemo</title>
 
+    <script>
+        (function () {
+            // Bridge release: keep this true.
+            const DISABLE_SERVICE_WORKERS = true;
+            const SESSION_KEY = 'echomemo_sw_bridge_v1';
+
+            // Used by your SW registration block later (keep your existing guard).
+            window.__ECHOMEMO_DISABLE_SW__ = DISABLE_SERVICE_WORKERS;
+
+            async function cleanup() {
+            if (!DISABLE_SERVICE_WORKERS) return;
+            if (!('serviceWorker' in navigator)) return;
+
+            try {
+                const regs = await navigator.serviceWorker.getRegistrations();
+                await Promise.all(regs.map((r) => r.unregister().catch(() => false)));
+            } catch (e) {}
+
+            try {
+                if ('caches' in window) {
+                const names = await caches.keys();
+                await Promise.all(names.map((n) => caches.delete(n)));
+                }
+            } catch (e) {}
+
+            // Reload once to ensure we come back uncontrolled.
+            if (sessionStorage.getItem(SESSION_KEY) !== '1') {
+                sessionStorage.setItem(SESSION_KEY, '1');
+                const url = new URL(location.href);
+                url.searchParams.set('sw_nuked', '1');
+                url.searchParams.set('t', String(Date.now()));
+                location.replace(url.toString());
+            }
+            }
+
+            cleanup();
+        })();
+        </script>
+
     <!--
       Service Worker NUKE (temporary)
       - Unregisters all service workers for this origin
