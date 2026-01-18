@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import InstallPwaButton from './components/InstallPwaButton.tsx'
 import ListPage from './pages/ListPage.tsx'
 import PlaybackPage from './pages/PlaybackPage.tsx'
@@ -62,6 +62,10 @@ export default function App() {
       {!isInstalled && <Header />}
       <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 pb-12 pt-6">
         <Routes>
+          {/* Back-compat for PWAs that launch at /index.html */}
+          <Route path="/index.html" element={<Navigate to="/" replace />} />
+          {/* GitHub Pages SPA fallback copies index.html to 404.html */}
+          <Route path="/404.html" element={<Navigate to="/" replace />} />
           <Route path="/" element={<ListPage />} />
           <Route path="/folder/:id" element={<ListPage />} />
           <Route path="/record" element={<RecordPage />} />

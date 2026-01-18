@@ -16,7 +16,12 @@ export default defineConfig({
       manifest: {
         name: 'EchoMemo',
         short_name: 'EchoMemo',
-        start_url: `${basePath}index.html`,
+        // Keep a stable id across deployments and repo subpaths (e.g. /EchoMemo2/).
+        // This helps existing installs treat updates as the same app.
+        id: basePath,
+        // Use the folder root as the start URL so React Router doesn't see "/index.html".
+        // (Installed PWAs often launch at start_url, and basename-stripping would leave /index.html.)
+        start_url: basePath,
         scope: basePath,
         display: 'standalone',
         background_color: '#f8fafc',

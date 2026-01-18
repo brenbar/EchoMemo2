@@ -1,0 +1,39 @@
+{
+  "name": "EchoMemo",
+  "short_name": "EchoMemo",
+  "description": "Record yourself reciting scripts, then loop playback to memorize.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "EchoMemo192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "EchoMemo512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
