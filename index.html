@@ -7,99 +7,42 @@
 
     <script>
         (function () {
-            // Bridge release: keep this true.
-            const DISABLE_SERVICE_WORKERS = true;
-            const SESSION_KEY = 'echomemo_sw_bridge_v1';
+            // 1. One source of truth for the bridge
+            window.__ECHOMEMO_DISABLE_SW__ = true; 
+            const CLEANUP_KEY = 'echomemo_migration_complete_v2';
 
-            // Used by your SW registration block later (keep your existing guard).
-            window.__ECHOMEMO_DISABLE_SW__ = DISABLE_SERVICE_WORKERS;
-
-            async function cleanup() {
-            if (!DISABLE_SERVICE_WORKERS) return;
-            if (!('serviceWorker' in navigator)) return;
-
-            try {
-                const regs = await navigator.serviceWorker.getRegistrations();
-                await Promise.all(regs.map((r) => r.unregister().catch(() => false)));
-            } catch (e) {}
-
-            try {
-                if ('caches' in window) {
-                const names = await caches.keys();
-                await Promise.all(names.map((n) => caches.delete(n)));
-                }
-            } catch (e) {}
-
-            // Reload once to ensure we come back uncontrolled.
-            if (sessionStorage.getItem(SESSION_KEY) !== '1') {
-                sessionStorage.setItem(SESSION_KEY, '1');
-                const url = new URL(location.href);
-                url.searchParams.set('sw_nuked', '1');
-                url.searchParams.set('t', String(Date.now()));
-                location.replace(url.toString());
-            }
-            }
-
-            cleanup();
-        })();
-        </script>
-
-    <!--
-      Service Worker NUKE (temporary)
-      - Unregisters all service workers for this origin
-      - Clears Cache Storage
-      - Prevents re-registration (see registration block at bottom)
-      Remove once you're confident the old SW/caches are gone.
-    -->
-    <script>
-        (function () {
-            // Toggle: set to false once you're done nuking.
-            const DISABLE_SERVICE_WORKERS = true;
-            const SESSION_KEY = 'echomemo_sw_nuked_v1';
-
-            // Used by the registration block later in the page.
-            window.__ECHOMEMO_DISABLE_SW__ = DISABLE_SERVICE_WORKERS;
-
-            async function nukeServiceWorkerAndCaches() {
-                if (!DISABLE_SERVICE_WORKERS) return;
+            async function stableCleanup() {
                 if (!('serviceWorker' in navigator)) return;
 
-                const hadController = !!navigator.serviceWorker.controller;
-                let hadRegistrations = false;
-                let cacheNames = [];
+                // Check if we've already done the heavy lifting this session
+                if (sessionStorage.getItem(CLEANUP_KEY) === '1') return;
 
                 try {
+                    // Unregister Workers
                     const regs = await navigator.serviceWorker.getRegistrations();
-                    hadRegistrations = regs.length > 0;
-                    await Promise.all(regs.map(r => r.unregister().catch(() => false)));
-                } catch (e) {
-                    console.warn('[EchoMemo NUKE] Failed to unregister service workers:', e);
-                }
-
-                try {
-                    if ('caches' in window) {
-                        cacheNames = await caches.keys();
-                        await Promise.all(cacheNames.map(name => caches.delete(name)));
+                    for (let r of regs) {
+                        await r.unregister();
+                        console.log('[Migration] Unregistered old SW');
                     }
+
+                    // Clear Caches
+                    if ('caches' in window) {
+                        const names = await caches.keys();
+                        await Promise.all(names.map(n => caches.delete(n)));
+                        console.log('[Migration] Caches cleared');
+                    }
+
+                    sessionStorage.setItem(CLEANUP_KEY, '1');
+                    
+                    // Instead of a hard reload with URL params (which breaks iOS Home Screen),
+                    // we just let the page continue. Since SW is gone, 
+                    // subsequent fetches will go to the network naturally.
                 } catch (e) {
-                    console.warn('[EchoMemo NUKE] Failed to clear caches:', e);
-                }
-
-                const alreadyReloaded = sessionStorage.getItem(SESSION_KEY) === '1';
-                const didAnything = hadController || hadRegistrations || cacheNames.length > 0;
-
-                // If the page was controlled by a SW, a reload helps ensure we come back uncontrolled.
-                if (didAnything && !alreadyReloaded) {
-                    sessionStorage.setItem(SESSION_KEY, '1');
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('sw_nuke', '1');
-                    url.searchParams.set('t', String(Date.now()));
-                    window.location.replace(url.toString());
+                    console.warn('[Migration] Cleanup error:', e);
                 }
             }
 
-            // Run ASAP.
-            nukeServiceWorkerAndCaches();
+            stableCleanup();
         })();
     </script>
     

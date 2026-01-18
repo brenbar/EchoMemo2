@@ -1,58 +1,30 @@
-// sw.js - EchoMemo bridge cleaner (migration release)
-// Purpose: remove old caches + unregister old SW so the new app can take over.
+// sw.js - EchoMemo Stable Bridge
+const CACHE_NAME = 'migration-v1';
 
 self.addEventListener('install', (event) => {
-  // Activate this SW immediately (don’t wait for all tabs to close).
+  // Force the new SW to take over, but don't delete everything yet
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil((async () => {
-    try {
-      // 1) Delete ALL caches for this origin (aggressive on purpose for migration)
-      const names = await caches.keys();
-      await Promise.all(names.map((name) => caches.delete(name)));
-    } catch (e) {
-      // Best effort
-    }
-
-    try {
-      // 2) Take control briefly so we can refresh clients
-      await self.clients.claim();
-    } catch (e) {
-      // Best effort
-    }
-
-    try {
-      // 3) Unregister this service worker so the origin becomes uncontrolled
-      await self.registration.unregister();
-    } catch (e) {
-      // Best effort
-    }
-
-    try {
-      // 4) Reload any open windows under our scope so they come back without SW control
-      const clientList = await self.clients.matchAll({
-        type: 'window',
-        includeUncontrolled: true,
-      });
-
-      await Promise.all(
-        clientList.map((client) => {
-          const url = new URL(client.url);
-          url.searchParams.set('sw_nuked', '1');
-          url.searchParams.set('t', String(Date.now()));
-          return client.navigate(url.toString());
-        }),
-      );
-    } catch (e) {
-      // Best effort
-    }
-  })());
+  event.waitUntil(
+    caches.keys().then((names) => {
+      return Promise.all(names.map((name) => caches.delete(name)));
+    }).then(() => {
+      // Claim clients so we can manage their fetches immediately
+      return self.clients.claim();
+    })
+  );
 });
 
-// During migration: never serve from cache.
-// This prevents stale cached HTML from bricking the new deployment.
+// STABLE PASS-THROUGH
+// This is the most important part. It stops the "bricking" by 
+// ensuring the browser always goes to the network.
 self.addEventListener('fetch', (event) => {
-  event.respondWith(fetch(event.request));
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      // If network fails, only then try cache as a last resort
+      return caches.match(event.request);
+    })
+  );
 });
