@@ -19,6 +19,7 @@ function isRecording(item: LibraryItem): item is RecordingMeta {
 
 export default function PlaylistEditorPage() {
   const MIN_RECORDINGS = 2
+  const DEFAULT_NEW_PLAYLIST_NAME = 'New playlist'
   const { items, addPlaylist, fetchPlaylist, updatePlaylist } = useRecordings()
   const navigate = useNavigate()
   const location = useLocation()
@@ -27,7 +28,7 @@ export default function PlaylistEditorPage() {
   const [parentId, setParentId] = useState<string | null>(routeState.parentId ?? null)
   const isEditMode = Boolean(playlistId)
 
-  const [name, setName] = useState(isEditMode ? 'Loading playlist' : 'New playlist')
+  const [name, setName] = useState(isEditMode ? 'Loading playlist' : '')
   const [entries, setEntries] = useState<{ recordingId: string; repeats: number }[]>([])
   const [selectOpen, setSelectOpen] = useState(false)
   const [browseParent, setBrowseParent] = useState<string | null>(parentId ?? null)
@@ -146,7 +147,8 @@ export default function PlaylistEditorPage() {
   }
   const removeEntry = (recordingId: string) => setEntries((prev) => prev.filter((entry) => entry.recordingId !== recordingId))
 
-  const canSave = name.trim().length > 0 && meetsMinimumEntries && !loadingExisting
+  const trimmedName = name.trim()
+  const canSave = (isEditMode ? trimmedName.length > 0 : true) && meetsMinimumEntries && !loadingExisting
 
   const handleSave = async () => {
     if (!canSave) return
@@ -155,7 +157,7 @@ export default function PlaylistEditorPage() {
       repeats: clampRepeats(entry.repeats),
     }))
     if (isEditMode && playlistId) {
-      const updated = await updatePlaylist({ id: playlistId, name: name.trim(), entries: payload, parent: parentId })
+      const updated = await updatePlaylist({ id: playlistId, name: trimmedName, entries: payload, parent: parentId })
       if (!updated) {
         setLoadError('Unable to save playlist.')
         return
@@ -164,7 +166,7 @@ export default function PlaylistEditorPage() {
       navigate(destination)
       return
     }
-    await addPlaylist({ name: name.trim(), entries: payload, parent: parentId })
+    await addPlaylist({ name: trimmedName || DEFAULT_NEW_PLAYLIST_NAME, entries: payload, parent: parentId })
     navigate(parentId ? `/folder/${parentId}` : '/')
   }
 
@@ -268,7 +270,8 @@ export default function PlaylistEditorPage() {
             </label>
             <input
               id="playlist-name"
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              placeholder={DEFAULT_NEW_PLAYLIST_NAME}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
               value={name}
               disabled={loadingExisting}
               onChange={(e) => setName(e.target.value)}
