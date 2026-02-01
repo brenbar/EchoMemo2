@@ -26,7 +26,26 @@ export default function PlaylistPlaybackPage() {
   const playlistRef = useRef<PlaylistWithUrls | null>(null)
   const currentIndexRef = useRef(0)
   const playCountRef = useRef(1)
+  const repeatRestartGuardRef = useRef(false)
+  const repeatRestartGuardTimerRef = useRef<number | null>(null)
   const { ensureFillerPlaying, stopFiller, maybePrewarm, pauseAll } = useAudioContinuity(audioRef)
+
+  const clearRepeatRestartGuard = () => {
+    repeatRestartGuardRef.current = false
+    if (repeatRestartGuardTimerRef.current) {
+      window.clearTimeout(repeatRestartGuardTimerRef.current)
+      repeatRestartGuardTimerRef.current = null
+    }
+  }
+
+  const armRepeatRestartGuard = (timeoutMs = 1200) => {
+    repeatRestartGuardRef.current = true
+    if (repeatRestartGuardTimerRef.current) window.clearTimeout(repeatRestartGuardTimerRef.current)
+    repeatRestartGuardTimerRef.current = window.setTimeout(() => {
+      repeatRestartGuardRef.current = false
+      repeatRestartGuardTimerRef.current = null
+    }, timeoutMs)
+  }
 
   useEffect(() => {
     playlistRef.current = playlist
@@ -82,6 +101,7 @@ export default function PlaylistPlaybackPage() {
   useEffect(() => {
     const player = audioRef.current
     if (!player || !activeEntry) return
+    clearRepeatRestartGuard()
     ensureFillerPlaying()
     player.src = activeEntry.url
     player.loop = false
@@ -124,6 +144,10 @@ export default function PlaylistPlaybackPage() {
       }
     }
     const handleEnded = () => {
+      // iOS Safari (especially on lock screen) can fire multiple `ended` events around
+      // `currentTime = 0` + replay. Without a guard, we may consume multiple repeats
+      // and prematurely advance to the next track.
+      if (repeatRestartGuardRef.current) return
       const list = playlistRef.current
       if (!list) return
       const entry = list.resolved[currentIndexRef.current]
@@ -133,6 +157,7 @@ export default function PlaylistPlaybackPage() {
       const nextCount = playCountRef.current + 1
 
       if (nextCount <= entry.repeats) {
+        armRepeatRestartGuard()
         playCountRef.current = nextCount
         setPlayCount(nextCount)
         player.currentTime = 0
@@ -143,11 +168,16 @@ export default function PlaylistPlaybackPage() {
             setAutoPlayBlocked(true)
             stopFiller(0)
           })
+          .finally(() => {
+            // Clear guard on next tick so a genuine end after replay is still handled.
+            queueMicrotask(() => clearRepeatRestartGuard())
+          })
         return
       }
 
       player.currentTime = 0
       player.pause()
+      clearRepeatRestartGuard()
       jumpToIndex(currentIndexRef.current + 1)
     }
 
@@ -191,6 +221,7 @@ export default function PlaylistPlaybackPage() {
   const jumpToIndex = (target: number) => {
     const list = playlistRef.current
     if (!list || list.resolved.length === 0) return
+    clearRepeatRestartGuard()
     const size = list.resolved.length
     const nextIndex = ((target % size) + size) % size
     const player = audioRef.current

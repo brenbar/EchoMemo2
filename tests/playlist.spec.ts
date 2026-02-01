@@ -396,6 +396,41 @@ test('playlist advances after exhausting a track\'s repeat count', async ({ page
   await expect(firstTrack.getByText('Playing')).toHaveCount(0)
 })
 
+test('playlist repeat does not get skipped when ended fires twice quickly', async ({ page }) => {
+  await createPlaylistAtRoot(page, 'Ended Double Fire', ['Track One', 'Track Two'], { 'Track One': 2 })
+
+  const triggerEnded = async () => {
+    await page.evaluate(() => {
+      const audio = document.querySelector('audio')
+      audio?.dispatchEvent(new Event('ended'))
+    })
+  }
+
+  const triggerEndedTwice = async () => {
+    await page.evaluate(() => {
+      const audio = document.querySelector('audio')
+      audio?.dispatchEvent(new Event('ended'))
+      audio?.dispatchEvent(new Event('ended'))
+    })
+  }
+
+  const firstTrack = page.locator('li', { hasText: 'Track One' })
+  const secondTrack = page.locator('li', { hasText: 'Track Two' })
+
+  await expect(firstTrack.getByText('Playing')).toBeVisible()
+
+  // Simulate iOS Safari lock-screen behavior where `ended` can effectively fire twice
+  // around `currentTime = 0` and replay.
+  await triggerEndedTwice()
+  await expect(firstTrack.getByText('Playing')).toBeVisible()
+  await expect(page.getByText(/Now playing: Track One \(2\/2\)/)).toBeVisible()
+
+  // Now the real end of the second iteration should advance.
+  await triggerEnded()
+  await expect(secondTrack.getByText('Playing')).toBeVisible()
+  await expect(firstTrack.getByText('Playing')).toHaveCount(0)
+})
+
 test('shows now playing subtext on first iteration', async ({ page }) => {
   await createPlaylistAtRoot(page, 'Now Playing Copy', ['Solo Clip', 'Second Solo'])
 
