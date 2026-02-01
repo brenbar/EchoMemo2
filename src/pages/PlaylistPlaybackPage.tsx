@@ -4,6 +4,7 @@ import { useRecordings } from '../state/RecordingsContext'
 import type { PlaylistWithData, PlaylistResolvedEntry } from '../types'
 import { formatDuration } from '../utils/format'
 import { useAudioContinuity } from '../utils/audioContinuity'
+import { clearMediaActionHandlers, hasMediaSession, setMediaActionHandler, setMediaMetadata, setMediaPlaybackState, setMediaPositionState } from '../utils/mediaSession'
 
 type PlaylistEntryWithUrl = PlaylistResolvedEntry & { url: string }
 type PlaylistWithUrls = Omit<PlaylistWithData, 'resolved'> & { resolved: PlaylistEntryWithUrl[] }
@@ -42,6 +43,7 @@ export default function PlaylistPlaybackPage() {
 
   const [debugLines, setDebugLines] = useState<string[]>([])
   const lastTimeUpdateLogMsRef = useRef(0)
+  const lastPositionStateUpdateMsRef = useRef(0)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const playlistRef = useRef<PlaylistWithUrls | null>(null)
@@ -241,6 +243,15 @@ export default function PlaylistPlaybackPage() {
       setCurrentTime(player.currentTime)
       maybePrewarm()
 
+      if (hasMediaSession()) {
+        const now = Date.now()
+        if (now - lastPositionStateUpdateMsRef.current > 900) {
+          lastPositionStateUpdateMsRef.current = now
+          const fallbackDuration = playlistRef.current?.resolved[currentIndexRef.current]?.recording.duration ?? 0
+          setMediaPositionState({ duration: player.duration || fallbackDuration, position: player.currentTime, playbackRate: player.playbackRate })
+        }
+      }
+
       if (debugAudio) {
         const now = Date.now()
         if (now - lastTimeUpdateLogMsRef.current > 1200) {
@@ -252,6 +263,10 @@ export default function PlaylistPlaybackPage() {
     const handleLoaded = () => {
       if (Number.isFinite(player.duration)) {
         setDuration(player.duration)
+      }
+      if (hasMediaSession()) {
+        const fallbackDuration = playlistRef.current?.resolved[currentIndexRef.current]?.recording.duration ?? 0
+        setMediaPositionState({ duration: player.duration || fallbackDuration, position: player.currentTime, playbackRate: player.playbackRate })
       }
       pushDebug(`event loadedmetadata ${JSON.stringify(snapshotDebugState())}`)
     }
@@ -384,6 +399,9 @@ export default function PlaylistPlaybackPage() {
     }
   }, [ensureFillerPlaying, isLikelyIOS, maybePrewarm, stopFiller])
 
+  const nextTrackRef = useRef<() => void>(() => {})
+  const prevTrackRef = useRef<() => void>(() => {})
+
   const togglePlayback = () => {
     const player = audioRef.current
     if (!player) return
@@ -424,6 +442,88 @@ export default function PlaylistPlaybackPage() {
 
   const nextTrack = () => jumpToIndex(currentIndexRef.current + 1)
   const prevTrack = () => jumpToIndex(currentIndexRef.current - 1)
+
+  useEffect(() => {
+    nextTrackRef.current = nextTrack
+  }, [nextTrack])
+  useEffect(() => {
+    prevTrackRef.current = prevTrack
+  }, [prevTrack])
+  useEffect(() => {
+    if (!hasMediaSession()) return undefined
+
+    // Keep lock-screen controls wired to the current player.
+    setMediaActionHandler('play', () => {
+      const player = audioRef.current
+      if (!player) return
+      void player.play()
+    })
+    setMediaActionHandler('pause', () => {
+      const player = audioRef.current
+      if (!player) return
+      player.pause()
+    })
+    setMediaActionHandler('stop', () => {
+      const player = audioRef.current
+      if (!player) return
+      player.pause()
+      player.currentTime = 0
+    })
+    setMediaActionHandler('nexttrack', () => nextTrackRef.current())
+    setMediaActionHandler('previoustrack', () => prevTrackRef.current())
+    setMediaActionHandler('seekto', (details) => {
+      const player = audioRef.current
+      if (!player) return
+      const anyDetails = details as unknown as { seekTime?: number }
+      if (typeof anyDetails.seekTime === 'number' && Number.isFinite(anyDetails.seekTime)) {
+        player.currentTime = anyDetails.seekTime
+      }
+    })
+    setMediaActionHandler('seekbackward', (details) => {
+      const player = audioRef.current
+      if (!player) return
+      const anyDetails = details as unknown as { seekOffset?: number }
+      const offset = typeof anyDetails.seekOffset === 'number' ? anyDetails.seekOffset : 10
+      player.currentTime = Math.max(0, player.currentTime - offset)
+    })
+    setMediaActionHandler('seekforward', (details) => {
+      const player = audioRef.current
+      if (!player) return
+      const anyDetails = details as unknown as { seekOffset?: number }
+      const offset = typeof anyDetails.seekOffset === 'number' ? anyDetails.seekOffset : 10
+      player.currentTime = Math.min(player.duration || Infinity, player.currentTime + offset)
+    })
+
+    return () => {
+      clearMediaActionHandlers()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!hasMediaSession()) return
+
+    if (!activeEntry || !playlist) {
+      setMediaMetadata(null)
+      setMediaPlaybackState('none')
+      return
+    }
+
+    const total = playlist.resolved.length
+    const trackLabel = total > 0 ? `${currentIndex + 1}/${total}` : ''
+    const repeats = activeEntry.repeats || 1
+    const repeatLabel = `${playCount}/${repeats}`
+
+    // No standard lock-screen field for repeat count, so we include it in the title.
+    const title = trackLabel ? `${trackLabel} • ${activeEntry.recording.name} (${repeatLabel})` : `${activeEntry.recording.name} (${repeatLabel})`
+
+    setMediaMetadata({
+      title,
+      artist: playlist.name || 'EchoMemo',
+      album: 'EchoMemo',
+    })
+
+    setMediaPlaybackState(isPlaying ? 'playing' : 'paused')
+  }, [activeEntry, currentIndex, isPlaying, playCount, playlist])
 
   useEffect(() => () => pauseAll(), [pauseAll])
 

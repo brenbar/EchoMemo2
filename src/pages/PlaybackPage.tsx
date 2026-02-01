@@ -4,6 +4,7 @@ import { useRecordings } from '../state/RecordingsContext'
 import type { RecordingWithData } from '../types'
 import { formatDuration } from '../utils/format'
 import { useAudioContinuity } from '../utils/audioContinuity'
+import { clearMediaActionHandlers, hasMediaSession, setMediaActionHandler, setMediaMetadata, setMediaPlaybackState, setMediaPositionState } from '../utils/mediaSession'
 
 export default function PlaybackPage() {
   const { id } = useParams<{ id: string }>()
@@ -17,6 +18,7 @@ export default function PlaybackPage() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const lastPositionStateUpdateMsRef = useRef(0)
   const [isScrubbing, setIsScrubbing] = useState(false)
   const scrubRef = useRef<HTMLDivElement | null>(null)
   const { ensureFillerPlaying, stopFiller, maybePrewarm, pauseAll } = useAudioContinuity(audioRef)
@@ -75,9 +77,20 @@ export default function PlaybackPage() {
     const handleTime = () => {
       if (!isScrubbing) setCurrentTime(player.currentTime)
       maybePrewarm()
+
+      if (hasMediaSession()) {
+        const now = Date.now()
+        if (now - lastPositionStateUpdateMsRef.current > 900) {
+          lastPositionStateUpdateMsRef.current = now
+          setMediaPositionState({ duration: player.duration || recording?.duration || 0, position: player.currentTime, playbackRate: player.playbackRate })
+        }
+      }
     }
     const handleLoaded = () => {
       setDuration(Number.isFinite(player.duration) ? player.duration : recording?.duration ?? 0)
+      if (hasMediaSession()) {
+        setMediaPositionState({ duration: player.duration || recording?.duration || 0, position: player.currentTime, playbackRate: player.playbackRate })
+      }
     }
     const handleEnded = () => {
       ensureFillerPlaying()
@@ -100,6 +113,71 @@ export default function PlaybackPage() {
       player.removeEventListener('ended', handleEnded)
     }
   }, [ensureFillerPlaying, isScrubbing, maybePrewarm, objectUrl, recording?.duration, stopFiller])
+
+  useEffect(() => {
+    if (!hasMediaSession()) return undefined
+
+    setMediaActionHandler('play', () => {
+      const player = audioRef.current
+      if (!player) return
+      void player.play()
+    })
+    setMediaActionHandler('pause', () => {
+      const player = audioRef.current
+      if (!player) return
+      player.pause()
+    })
+    setMediaActionHandler('stop', () => {
+      const player = audioRef.current
+      if (!player) return
+      player.pause()
+      player.currentTime = 0
+    })
+    setMediaActionHandler('seekto', (details) => {
+      const player = audioRef.current
+      if (!player) return
+      const anyDetails = details as unknown as { seekTime?: number }
+      if (typeof anyDetails.seekTime === 'number' && Number.isFinite(anyDetails.seekTime)) {
+        player.currentTime = anyDetails.seekTime
+      }
+    })
+    setMediaActionHandler('seekbackward', (details) => {
+      const player = audioRef.current
+      if (!player) return
+      const anyDetails = details as unknown as { seekOffset?: number }
+      const offset = typeof anyDetails.seekOffset === 'number' ? anyDetails.seekOffset : 10
+      player.currentTime = Math.max(0, player.currentTime - offset)
+    })
+    setMediaActionHandler('seekforward', (details) => {
+      const player = audioRef.current
+      if (!player) return
+      const anyDetails = details as unknown as { seekOffset?: number }
+      const offset = typeof anyDetails.seekOffset === 'number' ? anyDetails.seekOffset : 10
+      player.currentTime = Math.min(player.duration || Infinity, player.currentTime + offset)
+    })
+
+    return () => {
+      clearMediaActionHandlers()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!hasMediaSession()) return
+
+    if (!recording) {
+      setMediaMetadata(null)
+      setMediaPlaybackState('none')
+      return
+    }
+
+    setMediaMetadata({
+      title: recording.name,
+      artist: 'EchoMemo',
+      album: 'EchoMemo',
+    })
+
+    setMediaPlaybackState(isPlaying ? 'playing' : 'paused')
+  }, [isPlaying, recording])
 
   const togglePlayback = () => {
     const player = audioRef.current
