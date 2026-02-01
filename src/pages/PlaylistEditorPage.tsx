@@ -124,12 +124,6 @@ export default function PlaylistEditorPage() {
     }
   }, [fetchPlaylist, isEditMode, playlistId])
 
-  useEffect(() => {
-    if (selectOpen) {
-      setSelectedIds(new Set(entries.map((entry) => entry.recordingId)))
-    }
-  }, [selectOpen, entries])
-
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -139,16 +133,25 @@ export default function PlaylistEditorPage() {
     })
   }
 
-  const addSelectedToEntries = () => {
-    const selectedSnapshot = Array.from(selectedIds)
+  const saveSelectedToEntries = () => {
+    // Treat the checkbox set as the source of truth for the playlist entries.
+    // - Keep existing entries that remain selected (preserve order + repeats)
+    // - Remove existing entries that were unselected
+    // - Add newly selected recordings with repeats=1 (append in selection order)
+    const selectedSnapshot = Array.from(selectedIds).filter((id) => recordingsById.has(id))
+    const selectedSet = new Set(selectedSnapshot)
+
     setEntries((prev) => {
-      const existingIds = new Set(prev.map((entry) => entry.recordingId))
+      const kept = prev.filter((entry) => selectedSet.has(entry.recordingId))
+      const keptIds = new Set(kept.map((entry) => entry.recordingId))
+
       const additions = selectedSnapshot
-        .filter((id) => recordingsById.has(id))
-        .filter((id) => !existingIds.has(id))
+        .filter((id) => !keptIds.has(id))
         .map((id) => ({ recordingId: id, repeats: 1 }))
-      return [...prev, ...additions]
+
+      return [...kept, ...additions]
     })
+
     setSelectOpen(false)
   }
 
@@ -305,15 +308,18 @@ export default function PlaylistEditorPage() {
               <button
                 className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-400 dark:disabled:bg-slate-700"
                 disabled={loadingExisting}
-                onClick={() => setSelectOpen(true)}
+                onClick={() => {
+                  setSelectedIds(new Set(entries.map((entry) => entry.recordingId)))
+                  setSelectOpen(true)
+                }}
               >
-                Add recordings
+                Select recordings
               </button>
             </div>
 
             {readyEntries.length === 0 && !loadingExisting && (
               <div className="rounded-xl border border-dashed border-slate-300 bg-white/70 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-300">
-                No recordings added yet. Click “Add recordings” to start building your playlist.
+                No recordings added yet. Click “Select recordings” to start building your playlist.
               </div>
             )}
 
@@ -416,7 +422,7 @@ export default function PlaylistEditorPage() {
 
       <Modal
         open={selectOpen}
-        title="Add recordings"
+        title="Select recordings"
         onClose={() => setSelectOpen(false)}
         footer={
           <>
@@ -429,9 +435,9 @@ export default function PlaylistEditorPage() {
             <button
               className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-400 dark:disabled:bg-slate-700"
               disabled={selectedIds.size === 0}
-              onClick={addSelectedToEntries}
+              onClick={saveSelectedToEntries}
             >
-              Add selected
+              Save
             </button>
           </>
         }
@@ -478,7 +484,7 @@ export default function PlaylistEditorPage() {
           </div>
 
           <div
-            data-testid="add-recordings-tree"
+            data-testid="select-recordings-tree"
             className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white/70 p-3 shadow-inner dark:border-slate-700 dark:bg-slate-900/60"
           >
             <div className="flex flex-col gap-4">

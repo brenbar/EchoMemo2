@@ -84,10 +84,10 @@ test('warns and updates playlists when deleting a recording', async ({ page }) =
 
   await page.getByRole('button', { name: 'New playlist' }).click()
   await page.getByLabel('Playlist name').fill('Mix One')
-  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByRole('button', { name: 'Select recordings' }).click()
   await page.getByLabel('Keep Clip').check()
   await page.getByLabel('Remove Clip').check()
-  await page.getByRole('button', { name: 'Add selected' }).click()
+  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
   await page.getByRole('button', { name: 'Save playlist' }).click()
 
   await expect(page.getByText('Mix One')).toBeVisible()

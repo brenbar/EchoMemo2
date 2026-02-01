@@ -82,11 +82,11 @@ async function createPlaylistAtRoot(page: Page, playlistName: string, recordingN
 
   await page.getByRole('button', { name: 'New playlist' }).click()
   await page.getByLabel('Playlist name').fill(playlistName)
-  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByRole('button', { name: 'Select recordings' }).click()
   for (const name of recordingNames) {
     await page.getByLabel(name).check()
   }
-  await page.getByRole('button', { name: 'Add selected' }).click()
+  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
   for (const [name, repeats] of Object.entries(repeatOverrides)) {
     await page.getByRole('textbox', { name: `Repeats for ${name}` }).fill(String(repeats))
   }
@@ -133,10 +133,10 @@ test('user can create a playlist from a folder and adjust repeats', async ({ pag
   await page.getByRole('button', { name: 'New playlist' }).click()
   await page.getByLabel('Playlist name').fill('Study Playlist')
 
-  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByRole('button', { name: 'Select recordings' }).click()
   await page.getByLabel('Clip One').check()
   await page.getByLabel('Clip Two').check()
-  await page.getByRole('button', { name: 'Add selected' }).click()
+  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
 
   await expect(page.getByText('Clip One')).toBeVisible()
   await expect(page.getByText('Clip Two')).toBeVisible()
@@ -172,7 +172,7 @@ test('playlist editor can select all recordings in the currently viewed folder',
   await page.getByRole('button', { name: 'New playlist' }).click()
   await page.getByLabel('Playlist name').fill('Select All Playlist')
 
-  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByRole('button', { name: 'Select recordings' }).click()
 
   // In a folder, the modal should only show that folder's recordings.
   await expect(page.getByLabel('Root Clip')).toHaveCount(0)
@@ -182,12 +182,12 @@ test('playlist editor can select all recordings in the currently viewed folder',
   await page.getByRole('button', { name: 'Select all' }).click()
   await expect(page.getByLabel('Folder Clip One')).toBeChecked()
   await expect(page.getByLabel('Folder Clip Two')).toBeChecked()
-  await expect(page.getByRole('button', { name: 'Add selected' })).toBeEnabled()
+  await expect(page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true })).toBeEnabled()
 
   await page.getByRole('button', { name: 'Clear folder' }).click()
   await expect(page.getByLabel('Folder Clip One')).not.toBeChecked()
   await expect(page.getByLabel('Folder Clip Two')).not.toBeChecked()
-  await expect(page.getByRole('button', { name: 'Add selected' })).toBeDisabled()
+  await expect(page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true })).toBeDisabled()
 
   // Switching to root should change what "Select all" applies to.
   await page.getByRole('button', { name: 'Root' }).click()
@@ -198,7 +198,7 @@ test('playlist editor can select all recordings in the currently viewed folder',
   await expect(page.getByLabel('Root Clip')).toBeChecked()
 })
 
-test('Add recordings modal caps height and scrolls long lists', async ({ page }) => {
+test('Select recordings modal caps height and scrolls long lists', async ({ page }) => {
   await page.goto('/')
 
   const recordingNames = Array.from({ length: 25 }, (_, idx) => `Bulk Clip ${idx + 1}`)
@@ -209,7 +209,7 @@ test('Add recordings modal caps height and scrolls long lists', async ({ page })
   await page.getByRole('button', { name: 'New playlist' }).click()
   await page.getByLabel('Playlist name').fill('Scroll Regression')
 
-  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByRole('button', { name: 'Select recordings' }).click()
 
   const modalPanel = page.getByTestId('modal-panel')
   await expect(modalPanel).toBeVisible()
@@ -221,7 +221,7 @@ test('Add recordings modal caps height and scrolls long lists', async ({ page })
   expect(box!.y).toBeGreaterThanOrEqual(0)
   expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height + 6)
 
-  const tree = page.getByTestId('add-recordings-tree')
+  const tree = page.getByTestId('select-recordings-tree')
   await expect(tree).toBeVisible()
 
   const isScrollable = await tree.evaluate((el) => el.scrollHeight > el.clientHeight)
@@ -256,6 +256,30 @@ test('user can edit a playlist from the dedicated editor view', async ({ page })
   await page.getByRole('button', { name: 'Edited List' }).click()
   await expect(page).toHaveURL(/\/playlist\//)
   await expect(page.getByText(/repeats 3/i)).toBeVisible()
+})
+
+test('Select recordings modal can remove tracks from a playlist', async ({ page }) => {
+  await createPlaylistAtRoot(page, 'Modal Remove', ['Track A', 'Track B', 'Track C'])
+
+  await page.getByLabel('Back to list').click()
+  const playlistRow = page.locator('div[role="button"]', { hasText: 'Modal Remove' }).first()
+  await playlistRow.getByRole('button', { name: 'Item actions', exact: true }).click()
+  await playlistRow.getByRole('menuitem', { name: 'Edit' }).click()
+
+  await expect(page).toHaveURL(/\/playlist\/.*\/edit/)
+
+  await page.getByRole('button', { name: 'Select recordings' }).click()
+  await page.getByTestId('modal-panel').getByRole('checkbox', { name: 'Track B', exact: true }).uncheck()
+  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
+
+  await expect(page.locator('[data-playlist-row-name="Track B"]').first()).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Save changes' }).click()
+  await expect(page).toHaveURL(/\/$/)
+
+  await page.getByRole('button', { name: 'Modal Remove' }).click()
+  await expect(page).toHaveURL(/\/playlist\//)
+  await expect(page.locator('li', { hasText: 'Track B' })).toHaveCount(0)
 })
 
 test('playlist editor textboxes use >=16px font at mobile viewport (avoids iOS focus zoom)', async ({ page }) => {
@@ -307,17 +331,17 @@ test('new playlist requires at least two recordings', async ({ page }) => {
   await page.getByRole('button', { name: 'New playlist' }).click()
   await page.getByLabel('Playlist name').fill('Minimum Tracks')
 
-  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByRole('button', { name: 'Select recordings' }).click()
   await page.getByLabel('Single Clip').check()
-  await page.getByRole('button', { name: 'Add selected' }).click()
+  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
 
   const saveButton = page.getByRole('button', { name: 'Save playlist' })
   await expect(saveButton).toBeDisabled()
   await expect(page.getByText(/add at least two recordings/i)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByRole('button', { name: 'Select recordings' }).click()
   await page.getByLabel('Another Clip').check()
-  await page.getByRole('button', { name: 'Add selected' }).click()
+  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
 
   await expect(saveButton).toBeEnabled()
   await saveButton.click()
@@ -339,10 +363,10 @@ test('user can edit a playlist from the list row and return to its folder', asyn
 
   await page.getByRole('button', { name: 'New playlist' }).click()
   await page.getByLabel('Playlist name').fill('Folder Playlist')
-  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByRole('button', { name: 'Select recordings' }).click()
   await page.getByLabel('Snippet One').check()
   await page.getByLabel('Snippet Two').check()
-  await page.getByRole('button', { name: 'Add selected' }).click()
+  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
   await page.getByRole('button', { name: 'Save playlist' }).click()
 
   await expect(page).toHaveURL(/\/folder\//)
@@ -376,9 +400,9 @@ test('edit playlist enforces minimum recordings', async ({ page }) => {
   await expect(saveButton).toBeDisabled()
   await expect(page.getByText(/add at least two recordings/i)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByRole('button', { name: 'Select recordings' }).click()
   await page.getByLabel('Track One').check()
-  await page.getByRole('button', { name: 'Add selected' }).click()
+  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
 
   await expect(saveButton).toBeEnabled()
   await saveButton.click()

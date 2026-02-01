@@ -114,12 +114,12 @@ async function createPlaylist(
 
   await page.getByRole('button', { name: 'New playlist' }).click()
   await page.getByLabel('Playlist name').fill(playlistName)
-  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByRole('button', { name: 'Select recordings' }).click()
   for (const name of recordingNames) {
     const checkbox = page.getByLabel(name)
     await checkbox.check()
   }
-  await page.getByRole('button', { name: 'Add selected' }).click()
+  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
 
   if (repeatOverrides) {
     for (const [name, repeats] of Object.entries(repeatOverrides)) {
@@ -317,11 +317,11 @@ test('playlist editor disables save without entries and re-disables after remova
   const saveButton = page.getByRole('button', { name: 'Save playlist' })
   await expect(saveButton).toBeDisabled()
 
-  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByRole('button', { name: 'Select recordings' }).click()
   await page.getByRole('button', { name: 'Nest' }).click()
   await page.getByLabel('Nested Clip', { exact: true }).check()
   await page.getByLabel('Nested Clip 2').check()
-  await page.getByRole('button', { name: 'Add selected' }).click()
+  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
   await expect(page.getByText('Nested Clip', { exact: true })).toBeVisible()
   await expect(page.getByText('Nested Clip 2')).toBeVisible()
   await expect(saveButton).toBeEnabled()

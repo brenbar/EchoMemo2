@@ -82,11 +82,11 @@ async function createPlaylistAtRoot(page: Page, playlistName: string, recordingN
 
   await page.getByRole('button', { name: 'New playlist' }).click()
   await page.getByLabel('Playlist name').fill(playlistName)
-  await page.getByRole('button', { name: 'Add recordings' }).click()
+  await page.getByRole('button', { name: 'Select recordings' }).click()
   for (const name of recordingNames) {
     await page.getByLabel(name).check()
   }
-  await page.getByRole('button', { name: 'Add selected' }).click()
+  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
   for (const [name, repeats] of Object.entries(repeatOverrides)) {
     await page.getByRole('textbox', { name: `Repeats for ${name}` }).fill(String(repeats))
   }
