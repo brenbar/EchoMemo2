@@ -465,6 +465,52 @@ export async function updateParent(id: string, parent: string | null): Promise<L
     await txDone(tx).catch(() => {})
     return null
   }
+
+  if (parent === id) {
+    tx.abort()
+    await txDone(tx).catch(() => {})
+    return null
+  }
+
+  if (parent !== null) {
+    const all = (await wrapRequest(store.getAll())) as RecordingRecord[]
+    const parentById = new Map<string, string | null>()
+    const isFolderById = new Map<string, boolean>()
+
+    for (const item of all) {
+      parentById.set(item.id, item.parent ?? null)
+      isFolderById.set(item.id, isFolderRecord(item))
+    }
+
+    // If the destination exists in IndexedDB, require it to be a folder.
+    if (isFolderById.has(parent) && isFolderById.get(parent) !== true) {
+      tx.abort()
+      await txDone(tx).catch(() => {})
+      return null
+    }
+
+    // Prevent moving a folder into one of its descendants.
+    if (isFolderRecord(record)) {
+      const visited = new Set<string>()
+      let current: string | null = parent
+      while (current !== null) {
+        if (current === id) {
+          tx.abort()
+          await txDone(tx).catch(() => {})
+          return null
+        }
+        if (visited.has(current)) {
+          // Detected a cycle in existing data; don't make it worse.
+          tx.abort()
+          await txDone(tx).catch(() => {})
+          return null
+        }
+        visited.add(current)
+        current = parentById.get(current) ?? null
+      }
+    }
+  }
+
   record.parent = parent
   store.put(record)
   await txDone(tx)

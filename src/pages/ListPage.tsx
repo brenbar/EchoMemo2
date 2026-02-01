@@ -45,10 +45,6 @@ export default function ListPage() {
       ? items.find((item) => item.id === browseParent)?.name ?? 'selected folder'
       : 'Root')
   const isSameLocation = moveTarget ? (browseParent ?? null) === (moveTarget.parent ?? null) : false
-  const isInvalidSelf = moveTarget ? moveTarget.id === (browseParent ?? null) : false
-  const moveDisabled = !moveTarget || isSameLocation || isInvalidSelf
-  const moveButtonLabel = isSameLocation ? "Stay" : `Move to '${destinationName}'`
-  const headerTitle = activeParentId ? currentFolder?.name ?? 'Folder' : ''
 
   const childrenByParent = useMemo(() => {
     const map = new Map<string | null, LibraryItem[]>()
@@ -60,6 +56,32 @@ export default function ListPage() {
     })
     return map
   }, [items])
+
+  const invalidDestinationFolderIds = useMemo(() => {
+    if (!moveTarget?.isFolder) return new Set<string>()
+    const invalid = new Set<string>()
+    const stack: string[] = [moveTarget.id]
+
+    while (stack.length > 0) {
+      const currentId = stack.pop()
+      if (!currentId || invalid.has(currentId)) continue
+      invalid.add(currentId)
+
+      const children = childrenByParent.get(currentId) ?? []
+      for (const child of children) {
+        if (child.isFolder === true) stack.push(child.id)
+      }
+    }
+
+    return invalid
+  }, [childrenByParent, moveTarget])
+
+  const isInvalidDestination =
+    moveTarget && browseParent ? invalidDestinationFolderIds.has(browseParent) : false
+
+  const moveDisabled = !moveTarget || isSameLocation || isInvalidDestination
+  const moveButtonLabel = isSameLocation ? "Stay" : `Move to '${destinationName}'`
+  const headerTitle = activeParentId ? currentFolder?.name ?? 'Folder' : ''
 
   const getDescendantCount = useCallback(
     (targetId: string) => {
@@ -78,12 +100,15 @@ export default function ListPage() {
   )
 
 
-  const loadFolders = async (parentId: string | null) => {
+  const loadFolders = useCallback(async (parentId: string | null) => {
     setBrowseLoading(true)
     const folders = await listFolders(parentId)
-    setAvailableFolders(sortLibraryItems(folders))
+    const filtered = moveTarget?.isFolder
+      ? folders.filter((folder) => !invalidDestinationFolderIds.has(folder.id))
+      : folders
+    setAvailableFolders(sortLibraryItems(filtered))
     setBrowseLoading(false)
-  }
+  }, [invalidDestinationFolderIds, listFolders, moveTarget])
 
   useEffect(() => {
     const targetParent = folderId ?? null
@@ -94,7 +119,7 @@ export default function ListPage() {
     if (!moveTarget) return
     const parentId = browseParent ?? null
     void loadFolders(parentId)
-  }, [moveTarget, browseParent])
+  }, [moveTarget, browseParent, loadFolders])
 
   useEffect(() => {
     setDeleteAcknowledged(false)
@@ -456,6 +481,7 @@ export default function ListPage() {
                     type="button"
                     className="flex w-full items-center justify-between gap-2 py-2 text-left transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500 dark:hover:bg-slate-800/60"
                     onClick={() => {
+                      if (invalidDestinationFolderIds.has(folder.id)) return
                       setBrowseParent(folder.id)
                       setBrowsePath((prev) => [...prev, { id: folder.id, name: folder.name }])
                     }}

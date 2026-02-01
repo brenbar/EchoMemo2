@@ -153,6 +153,58 @@ test('back button goes to parent folder when inside nested folder', async ({ pag
   await expect(page.getByText('Child Folder')).toBeVisible()
 })
 
+test('cannot move a folder into itself (or its descendants)', async ({ page }) => {
+  await page.goto('/')
+
+  // Create a folder at root.
+  await page.getByRole('button', { name: 'New folder' }).click()
+  await page.getByLabel('Folder name').fill('Move Source')
+  await page.getByRole('button', { name: 'Create' }).click()
+  await expect(page.getByText('Move Source')).toBeVisible()
+
+  // Create a child folder inside it.
+  await page.getByRole('button', { name: 'Move Source' }).click()
+  await expect(page).toHaveURL(/\/folder\//)
+  await page.getByRole('button', { name: 'New folder' }).click()
+  await page.getByLabel('Folder name').fill('Move Source Child')
+  await page.getByRole('button', { name: 'Create' }).click()
+  await expect(page.getByText('Move Source Child')).toBeVisible()
+
+  // Go back to root.
+  const header = page.locator('section').first()
+  await header.getByRole('button', { name: 'Move Source' }).click()
+  await expect(page).toHaveURL(/\/(EchoMemo3\/)?$/)
+
+  // Create a different destination folder.
+  await page.getByRole('button', { name: 'New folder' }).click()
+  await page.getByLabel('Folder name').fill('Move Destination')
+  await page.getByRole('button', { name: 'Create' }).click()
+  await expect(page.getByText('Move Destination')).toBeVisible()
+
+  // Open move modal for the source folder.
+  const row = page.locator('div[role="button"][tabindex="0"]').filter({ hasText: 'Move Source' }).first()
+  await row.getByRole('button', { name: 'Item actions' }).click()
+  await page.getByRole('menuitem', { name: 'Move' }).click()
+
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+
+  // The source folder should never be offered as a destination (prevents moving into itself/descendants).
+  const folderButtons = dialog.locator('div.divide-y button')
+  await expect(folderButtons.filter({ hasText: 'Move Source' })).toHaveCount(0)
+
+  // Moving into a different folder should still work.
+  await folderButtons.filter({ hasText: 'Move Destination' }).click()
+  const moveButton = dialog.getByRole('button', { name: /Move to/ })
+  await expect(moveButton).toBeEnabled()
+  await moveButton.click()
+
+  // Source folder should now be inside the destination folder.
+  await expect(page.getByText('Move Source')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Move Destination' }).click()
+  await expect(page.getByText('Move Source')).toBeVisible()
+})
+
 test('folders and items are alphabetized with folders first', async ({ page }) => {
   await page.goto('/')
 
