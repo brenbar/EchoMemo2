@@ -99,7 +99,7 @@ export default function RecordPage() {
           value={script}
           onChange={(e) => setScript(e.target.value)}
           disabled={isRecording}
-          className="mt-4 h-72 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-inner dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          className="mt-4 h-72 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-800 shadow-inner sm:text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           placeholder="Paste or type what you want to memorize. The text stays visible while you record."
         />
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
@@ -169,7 +169,7 @@ export default function RecordPage() {
           </label>
           <input
             id="rec-name"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-base sm:text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={proposedName}
             onChange={(e) => setProposedName(e.target.value)}
           />

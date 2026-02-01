@@ -42,3 +42,13 @@ textarea:focus-visible {
   outline: 2px solid #6366f1;
   outline-offset: 2px;
 }
+
+/* iOS Safari zooms in when focusing inputs with font-size < 16px.
+   Keep our desktop sizing, but enforce a 16px minimum on small screens. */
+@media (max-width: 640px) {
+  #root input,
+  #root textarea,
+  #root select {
+    font-size: 16px;
+  }
+}

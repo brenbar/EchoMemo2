@@ -113,6 +113,10 @@ export default function ListPage() {
   const deleteTitle = deleteIsFolder ? 'Delete folder' : deleteIsPlaylist ? 'Delete playlist' : 'Delete recording'
   const deleteRequiresAcknowledgement = deleteIsFolder && deleteDescendantCount > 0
   const deleteButtonDisabled = deleteRequiresAcknowledgement && !deleteAcknowledged
+
+  const renameIsFolder = renameTarget ? kindOf(renameTarget) === 'folder' : false
+  const renameIsPlaylist = renameTarget ? kindOf(renameTarget) === 'playlist' : false
+  const renameTitle = renameIsFolder ? 'Rename folder' : renameIsPlaylist ? 'Rename playlist' : 'Rename recording'
   const deleteTargetPlaylists = useMemo(() => {
     if (!deleteTarget) return []
     if (kindOf(deleteTarget) !== 'recording') return []
@@ -228,7 +232,7 @@ export default function ListPage() {
 
       <Modal
         open={Boolean(renameTarget)}
-        title="Rename recording"
+        title={renameTitle}
         onClose={() => setRenameTarget(null)}
         footer={
           <>
@@ -258,7 +262,7 @@ export default function ListPage() {
           </label>
           <input
             id="rename"
-            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-base sm:text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={renameValue}
             onChange={(e) => setRenameValue(e.target.value)}
           />
