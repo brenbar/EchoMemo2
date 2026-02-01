@@ -149,7 +149,7 @@ export default function ListPage() {
             <div className="flex flex-col items-center text-center justify-self-center" />
             <div className="flex items-center justify-end gap-2">
             <button
-              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+              className="whitespace-nowrap rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
               onClick={() => {
                 setFolderName('')
                 setFolderModalOpen(true)
