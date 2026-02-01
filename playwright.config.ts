@@ -16,7 +16,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev -- --host --port 4173',
+    command: 'GITHUB_PAGES_BASE=/ npm run dev -- --host --port 4173',
     port: 4173,
     reuseExistingServer: true,
     timeout: 120_000,

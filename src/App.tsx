@@ -36,12 +36,31 @@ function useIsPwaInstalled() {
 }
 
 function Header() {
+  const appBasePath = (() => {
+    if (typeof window === 'undefined') return '/'
+
+    const pathname = window.location.pathname
+    const routeMarkers = ['/folder/', '/record', '/playlist/', '/play/', '/index.html', '/404.html']
+
+    let cutIndex = pathname.length
+    for (const marker of routeMarkers) {
+      const idx = pathname.indexOf(marker)
+      if (idx !== -1) cutIndex = Math.min(cutIndex, idx)
+    }
+
+    const base = pathname.slice(0, cutIndex)
+    if (base === '' || base === '/') return '/'
+    return base.endsWith('/') ? base : `${base}/`
+  })()
+
+  const appIconUrl = `${appBasePath}EchoMemo192.png`
+
   return (
     <header className="backdrop-blur-sm bg-white/70 border-b border-slate-200 sticky top-0 z-20 dark:border-slate-800 dark:bg-slate-900/70">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
         <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-50">
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white shadow-sm">
-            <span className="text-lg font-bold">EM</span>
+          <div className="h-10 w-10 overflow-hidden rounded-xl shadow-sm ring-1 ring-slate-200 dark:ring-slate-800">
+            <img src={appIconUrl} alt="EchoMemo" className="h-10 w-10" />
           </div>
           <div>
             <div className="text-base">EchoMemo</div>

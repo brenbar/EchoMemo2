@@ -92,6 +92,13 @@ test('library preloads free samples', async ({ page }) => {
   await expect(page.getByText('Free 880 Hz')).toBeVisible()
 })
 
+test('install header shows the real app icon', async ({ page }) => {
+  await page.goto('/')
+  const appIcon = page.getByRole('img', { name: 'EchoMemo' })
+  await expect(appIcon).toBeVisible()
+  await expect(appIcon).toHaveAttribute('src', /EchoMemo192\.png/)
+})
+
 test('user can record and see entry in library', async ({ page }) => {
   const name = 'My memory aid'
   await createRecording(page, name)
