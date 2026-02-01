@@ -153,6 +153,44 @@ test('user can create a playlist from a folder and adjust repeats', async ({ pag
   await expect(page.getByText(/repeats 2/i)).toBeVisible()
 })
 
+test('Add recordings modal caps height and scrolls long lists', async ({ page }) => {
+  await page.goto('/')
+
+  const recordingNames = Array.from({ length: 25 }, (_, idx) => `Bulk Clip ${idx + 1}`)
+  for (const name of recordingNames) {
+    await createRecordingInCurrentView(page, name)
+  }
+
+  await page.getByRole('button', { name: 'New playlist' }).click()
+  await page.getByLabel('Playlist name').fill('Scroll Regression')
+
+  await page.getByRole('button', { name: 'Add recordings' }).click()
+
+  const modalPanel = page.getByTestId('modal-panel')
+  await expect(modalPanel).toBeVisible()
+
+  const viewport = page.viewportSize()
+  const box = await modalPanel.boundingBox()
+  expect(viewport).not.toBeNull()
+  expect(box).not.toBeNull()
+  expect(box!.y).toBeGreaterThanOrEqual(0)
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height + 6)
+
+  const tree = page.getByTestId('add-recordings-tree')
+  await expect(tree).toBeVisible()
+
+  const isScrollable = await tree.evaluate((el) => el.scrollHeight > el.clientHeight)
+  expect(isScrollable).toBeTruthy()
+
+  await tree.evaluate((el) => {
+    el.scrollTop = el.scrollHeight
+  })
+
+  const lastName = recordingNames.at(-1)
+  if (!lastName) throw new Error('Missing last recording name')
+  await expect(page.getByLabel(lastName)).toBeInViewport()
+})
+
 test('user can edit a playlist from the dedicated editor view', async ({ page }) => {
   await createPlaylistAtRoot(page, 'Editable List', ['Track A', 'Track B'])
 

@@ -149,7 +149,7 @@ test('automatically imports legacy data on load', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByText('Found data from an older EchoMemo')).toHaveCount(0)
 
-  await expect(page.getByText('Legacy Clip')).toBeVisible()
+  await expect(page.getByText('Legacy Clip', { exact: true })).toBeVisible()
   await expect(page.getByText('Old Playlist')).toBeVisible()
 
   const legacyCount = await getLegacyRecordCount(page)
@@ -157,18 +157,18 @@ test('automatically imports legacy data on load', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Old Playlist' }).click()
   await expect(page).toHaveURL(/\/playlist\//)
-  await expect(page.getByText('Legacy Clip')).toBeVisible()
+  await expect(page.getByText('Legacy Clip', { exact: true })).toBeVisible()
 })
 
 test('does not reimport or prompt on reload', async ({ page }) => {
   await seedLegacyDb(page)
   await page.goto('/')
 
-  await expect(page.getByText('Legacy Clip')).toBeVisible()
+  await expect(page.getByText('Legacy Clip', { exact: true })).toBeVisible()
   await page.reload()
 
   await expect(page.getByText('Found data from an older EchoMemo')).toHaveCount(0)
-  await expect(page.getByText('Legacy Clip')).toBeVisible()
+  await expect(page.getByText('Legacy Clip', { exact: true })).toBeVisible()
 
   const legacyCount = await getLegacyRecordCount(page)
   expect(legacyCount).toBe(0)
@@ -182,12 +182,12 @@ test('imports legacy data even when ids collide', async ({ page }) => {
   await page.goto('/')
 
   await expect(page.getByText('Existing Clip')).toBeVisible()
-  await expect(page.getByText('Legacy Clip')).toBeVisible()
+  await expect(page.getByText('Legacy Clip', { exact: true })).toBeVisible()
   await expect(page.getByText('Old Playlist')).toBeVisible()
 
   await page.getByRole('button', { name: 'Old Playlist' }).click()
   await expect(page).toHaveURL(/\/playlist\//)
-  await expect(page.getByText('Legacy Clip')).toBeVisible()
+  await expect(page.getByText('Legacy Clip', { exact: true })).toBeVisible()
 
   const legacyCount = await getLegacyRecordCount(page)
   expect(legacyCount).toBe(0)

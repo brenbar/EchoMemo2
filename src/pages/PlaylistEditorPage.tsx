@@ -411,7 +411,7 @@ export default function PlaylistEditorPage() {
           </>
         }
       >
-        <div className="flex flex-col gap-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
           <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -452,7 +452,10 @@ export default function PlaylistEditorPage() {
             )}
           </div>
 
-          <div className="rounded-xl border border-slate-200 bg-white/70 p-3 shadow-inner dark:border-slate-700 dark:bg-slate-900/60">
+          <div
+            data-testid="add-recordings-tree"
+            className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-white/70 p-3 shadow-inner dark:border-slate-700 dark:bg-slate-900/60"
+          >
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Folders</p>
