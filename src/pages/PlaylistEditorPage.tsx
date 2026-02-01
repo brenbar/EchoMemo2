@@ -271,7 +271,7 @@ export default function PlaylistEditorPage() {
             <input
               id="playlist-name"
               placeholder={DEFAULT_NEW_PLAYLIST_NAME}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-base placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
               value={name}
               disabled={loadingExisting}
               onChange={(e) => setName(e.target.value)}
@@ -331,7 +331,7 @@ export default function PlaylistEditorPage() {
                             inputMode="numeric"
                             pattern="[0-9]*"
                             type="text"
-                            className="w-16 rounded-md border border-slate-200 px-2 py-2 text-center text-sm font-semibold text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                            className="w-16 rounded-md border border-slate-200 px-2 py-2 text-center text-base font-semibold text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                             value={entry.repeats}
                             disabled={loadingExisting}
                             onChange={(e) => {

@@ -213,6 +213,28 @@ test('user can edit a playlist from the dedicated editor view', async ({ page })
   await expect(page.getByText(/repeats 3/i)).toBeVisible()
 })
 
+test('playlist editor textboxes use >=16px font at mobile viewport (avoids iOS focus zoom)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await createPlaylistAtRoot(page, 'Zoom Guard', ['Track A', 'Track B'])
+
+  // Open the dedicated editor view.
+  await page.getByLabel('Back to list').click()
+  const playlistRow = page.locator('div[role="button"]', { hasText: 'Zoom Guard' }).first()
+  await playlistRow.getByRole('button', { name: 'Item actions', exact: true }).click()
+  await playlistRow.getByRole('menuitem', { name: 'Edit' }).click()
+  await expect(page).toHaveURL(/\/playlist\/.*\/edit/)
+
+  const nameFontSize = await page.getByLabel('Playlist name').evaluate((el) => {
+    return Number.parseFloat(window.getComputedStyle(el).fontSize)
+  })
+  expect(nameFontSize).toBeGreaterThanOrEqual(16)
+
+  const repeatsFontSize = await page.getByRole('textbox', { name: 'Repeats for Track A' }).evaluate((el) => {
+    return Number.parseFloat(window.getComputedStyle(el).fontSize)
+  })
+  expect(repeatsFontSize).toBeGreaterThanOrEqual(16)
+})
+
 test('playlist repeat controls respond to mouse clicks', async ({ page }) => {
   await createPlaylistAtRoot(page, 'Mouse Adjust', ['Mouse Track A', 'Mouse Track B'])
 
