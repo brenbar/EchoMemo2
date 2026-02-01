@@ -63,6 +63,28 @@ export default function PlaylistEditorPage() {
   const visibleFolders = visibleChildren.filter((item) => item.isFolder)
   const visibleRecordings = visibleChildren.filter(isRecording)
 
+  const visibleRecordingIds = useMemo(() => visibleRecordings.map((rec) => rec.id), [visibleRecordings])
+  const allVisibleRecordingsSelected =
+    visibleRecordingIds.length > 0 && visibleRecordingIds.every((id) => selectedIds.has(id))
+
+  const selectAllVisibleRecordings = () => {
+    if (visibleRecordingIds.length === 0) return
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      visibleRecordingIds.forEach((id) => next.add(id))
+      return next
+    })
+  }
+
+  const clearVisibleRecordings = () => {
+    if (visibleRecordingIds.length === 0) return
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      visibleRecordingIds.forEach((id) => next.delete(id))
+      return next
+    })
+  }
+
   const meetsMinimumEntries = readyEntries.length >= MIN_RECORDINGS
   const needsMoreEntries = readyEntries.length > 0 && readyEntries.length < MIN_RECORDINGS
 
@@ -509,7 +531,19 @@ export default function PlaylistEditorPage() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Recordings</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Recordings</p>
+                  {visibleRecordings.length > 0 && (
+                    <button
+                      type="button"
+                      className="rounded-full px-3 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 hover:text-indigo-500 dark:text-indigo-300 dark:hover:bg-indigo-900/30"
+                      onClick={allVisibleRecordingsSelected ? clearVisibleRecordings : selectAllVisibleRecordings}
+                      aria-label={allVisibleRecordingsSelected ? 'Clear folder selection' : 'Select all in folder'}
+                    >
+                      {allVisibleRecordingsSelected ? 'Clear folder' : 'Select all'}
+                    </button>
+                  )}
+                </div>
                 {visibleRecordings.length === 0 && <div className="text-sm text-slate-500">No recordings in this folder.</div>}
                 {visibleRecordings.length > 0 && (
                   <div className="flex flex-col divide-y divide-slate-200 dark:divide-slate-800">

@@ -153,6 +153,51 @@ test('user can create a playlist from a folder and adjust repeats', async ({ pag
   await expect(page.getByText(/repeats 2/i)).toBeVisible()
 })
 
+test('playlist editor can select all recordings in the currently viewed folder', async ({ page }) => {
+  await page.goto('/')
+
+  await createRecordingInCurrentView(page, 'Root Clip')
+
+  await page.getByRole('button', { name: 'New folder' }).click()
+  await page.getByLabel('Folder name').fill('Select-All Folder')
+  await page.getByRole('button', { name: 'Create' }).click()
+  await expect(page.getByText('Select-All Folder')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Select-All Folder' }).click()
+  await expect(page).toHaveURL(/\/folder\//)
+
+  await createRecordingInCurrentView(page, 'Folder Clip One')
+  await createRecordingInCurrentView(page, 'Folder Clip Two')
+
+  await page.getByRole('button', { name: 'New playlist' }).click()
+  await page.getByLabel('Playlist name').fill('Select All Playlist')
+
+  await page.getByRole('button', { name: 'Add recordings' }).click()
+
+  // In a folder, the modal should only show that folder's recordings.
+  await expect(page.getByLabel('Root Clip')).toHaveCount(0)
+  await expect(page.getByLabel('Folder Clip One')).toBeVisible()
+  await expect(page.getByLabel('Folder Clip Two')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Select all' }).click()
+  await expect(page.getByLabel('Folder Clip One')).toBeChecked()
+  await expect(page.getByLabel('Folder Clip Two')).toBeChecked()
+  await expect(page.getByRole('button', { name: 'Add selected' })).toBeEnabled()
+
+  await page.getByRole('button', { name: 'Clear folder' }).click()
+  await expect(page.getByLabel('Folder Clip One')).not.toBeChecked()
+  await expect(page.getByLabel('Folder Clip Two')).not.toBeChecked()
+  await expect(page.getByRole('button', { name: 'Add selected' })).toBeDisabled()
+
+  // Switching to root should change what "Select all" applies to.
+  await page.getByRole('button', { name: 'Root' }).click()
+  await expect(page.getByLabel('Root Clip')).toBeVisible()
+  await expect(page.getByLabel('Folder Clip One')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Select all' }).click()
+  await expect(page.getByLabel('Root Clip')).toBeChecked()
+})
+
 test('Add recordings modal caps height and scrolls long lists', async ({ page }) => {
   await page.goto('/')
 
