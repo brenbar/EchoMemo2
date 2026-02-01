@@ -32,7 +32,7 @@ export default function PlaylistEditorPage() {
   const [selectOpen, setSelectOpen] = useState(false)
   const [browseParent, setBrowseParent] = useState<string | null>(parentId ?? null)
   const [browsePath, setBrowsePath] = useState<{ id: string; name: string }[]>([])
-  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [loadingExisting, setLoadingExisting] = useState(isEditMode)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [swipeState, setSwipeState] = useState<{ id: string | null; startX: number; translate: number }>({
@@ -103,18 +103,24 @@ export default function PlaylistEditorPage() {
 
   useEffect(() => {
     if (selectOpen) {
-      setSelectedIds(entries.map((entry) => entry.recordingId))
+      setSelectedIds(new Set(entries.map((entry) => entry.recordingId)))
     }
   }, [selectOpen, entries])
 
   const toggleSelected = (id: string) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]))
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   const addSelectedToEntries = () => {
+    const selectedSnapshot = Array.from(selectedIds)
     setEntries((prev) => {
       const existingIds = new Set(prev.map((entry) => entry.recordingId))
-      const additions = selectedIds
+      const additions = selectedSnapshot
         .filter((id) => recordingsById.has(id))
         .filter((id) => !existingIds.has(id))
         .map((id) => ({ recordingId: id, repeats: 1 }))
@@ -397,7 +403,7 @@ export default function PlaylistEditorPage() {
             </button>
             <button
               className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-400 dark:disabled:bg-slate-700"
-              disabled={selectedIds.length === 0}
+              disabled={selectedIds.size === 0}
               onClick={addSelectedToEntries}
             >
               Add selected
@@ -501,29 +507,34 @@ export default function PlaylistEditorPage() {
                 {visibleRecordings.length === 0 && <div className="text-sm text-slate-500">No recordings in this folder.</div>}
                 {visibleRecordings.length > 0 && (
                   <div className="flex flex-col divide-y divide-slate-200 dark:divide-slate-800">
-                    {visibleRecordings.map((rec) => (
-                      <label
-                        key={rec.id}
-                        className="flex w-full items-center justify-between gap-3 py-2 text-sm text-slate-800 transition hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800/60"
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                            checked={selectedIds.includes(rec.id)}
-                            onChange={() => toggleSelected(rec.id)}
-                            aria-label={rec.name}
-                          />
-                          <div className="flex flex-col">
-                            <span className="font-semibold">{rec.name}</span>
-                            <span className="text-xs text-slate-500 dark:text-slate-400">{formatDuration(rec.duration)}</span>
+                    {visibleRecordings.map((rec) => {
+                      const isSelected = selectedIds.has(rec.id)
+                      return (
+                        <label
+                          key={rec.id}
+                          className="flex w-full items-center justify-between gap-3 py-2 text-sm text-slate-800 transition hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-800/60"
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                              checked={isSelected}
+                              onChange={() => toggleSelected(rec.id)}
+                              aria-label={rec.name}
+                            />
+                            <div className="flex flex-col">
+                              <span className="font-semibold">{rec.name}</span>
+                              <span className="text-xs text-slate-500 dark:text-slate-400">{formatDuration(rec.duration)}</span>
+                            </div>
                           </div>
-                        </div>
-                        {selectedIds.includes(rec.id) && (
-                          <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-100">Selected</span>
-                        )}
-                      </label>
-                    ))}
+                          {isSelected && (
+                            <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-100">
+                              Selected
+                            </span>
+                          )}
+                        </label>
+                      )
+                    })}
                   </div>
                 )}
               </div>
