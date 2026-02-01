@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useRecordings } from '../state/RecordingsContext'
 import type { PlaylistWithData, PlaylistResolvedEntry } from '../types'
 import { formatDuration } from '../utils/format'
@@ -12,6 +12,7 @@ export default function PlaylistPlaybackPage() {
   const { id } = useParams<{ id: string }>()
   const { fetchPlaylist } = useRecordings()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [playlist, setPlaylist] = useState<PlaylistWithUrls | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -22,13 +23,67 @@ export default function PlaylistPlaybackPage() {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
 
+  const isLikelyIOS = useMemo(() => {
+    if (typeof navigator === 'undefined') return false
+    const ua = navigator.userAgent ?? ''
+    const isIOSDevice = /iPad|iPhone|iPod/i.test(ua)
+    // iPadOS 13+ reports itself as Mac, but has touch points.
+    const isIPadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1
+    return isIOSDevice || isIPadOS
+  }, [])
+
+  const debugAudio = useMemo(() => {
+    try {
+      return new URLSearchParams(location.search).has('debugAudio')
+    } catch {
+      return false
+    }
+  }, [location.search])
+
+  const [debugLines, setDebugLines] = useState<string[]>([])
+  const lastTimeUpdateLogMsRef = useRef(0)
+
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const playlistRef = useRef<PlaylistWithUrls | null>(null)
   const currentIndexRef = useRef(0)
   const playCountRef = useRef(1)
   const repeatRestartGuardRef = useRef(false)
   const repeatRestartGuardTimerRef = useRef<number | null>(null)
+  const playbackGenerationRef = useRef(0)
+  const pendingEndedActionRef = useRef(false)
+  const replayAttemptRef = useRef(0)
+  const lastReplayRequestedAtMsRef = useRef(0)
+  const spuriousReplayWindowStartMsRef = useRef(0)
+  const spuriousReplayCountRef = useRef(0)
   const { ensureFillerPlaying, stopFiller, maybePrewarm, pauseAll } = useAudioContinuity(audioRef)
+
+  const pushDebug = (message: string) => {
+    if (!debugAudio) return
+    const ts = new Date().toISOString()
+    setDebugLines((prev) => {
+      const next = [...prev, `${ts} ${message}`]
+      return next.length > 250 ? next.slice(next.length - 250) : next
+    })
+  }
+
+  const snapshotDebugState = () => {
+    const player = audioRef.current
+    const entry = playlistRef.current?.resolved[currentIndexRef.current]
+    return {
+      idx: currentIndexRef.current,
+      playCount: playCountRef.current,
+      repeats: entry?.repeats ?? null,
+      name: entry?.recording.name ?? null,
+      paused: player?.paused ?? null,
+      ended: player?.ended ?? null,
+      ct: player ? Number(player.currentTime.toFixed(3)) : null,
+      dur: player ? (Number.isFinite(player.duration) ? Number(player.duration.toFixed(3)) : null) : null,
+      rs: player?.readyState ?? null,
+      ns: player?.networkState ?? null,
+      gen: playbackGenerationRef.current,
+      pendingEnded: pendingEndedActionRef.current,
+    }
+  }
 
   const clearRepeatRestartGuard = () => {
     repeatRestartGuardRef.current = false
@@ -45,6 +100,38 @@ export default function PlaylistPlaybackPage() {
       repeatRestartGuardRef.current = false
       repeatRestartGuardTimerRef.current = null
     }, timeoutMs)
+  }
+
+  const attemptReplay = async (generation: number, retries: number) => {
+    const player = audioRef.current
+    if (!player) return
+
+    ensureFillerPlaying()
+    try {
+      replayAttemptRef.current += 1
+      pushDebug(`attemptReplay start attempt=${replayAttemptRef.current} retriesLeft=${retries} ${JSON.stringify(snapshotDebugState())}`)
+      await player.play()
+      if (playbackGenerationRef.current !== generation) return
+      stopFiller(180)
+      setIsPlaying(true)
+      replayAttemptRef.current = 0
+      pendingEndedActionRef.current = false
+      pushDebug(`attemptReplay success ${JSON.stringify(snapshotDebugState())}`)
+    } catch {
+      if (playbackGenerationRef.current !== generation) return
+      if (retries > 0) {
+        pushDebug(`attemptReplay failed; retrying ${JSON.stringify(snapshotDebugState())}`)
+        // iOS can be flaky about restarting audio immediately after ended.
+        window.setTimeout(() => {
+          void attemptReplay(generation, retries - 1)
+        }, 200)
+        return
+      }
+      setAutoPlayBlocked(true)
+      stopFiller(0)
+      pendingEndedActionRef.current = false
+      pushDebug(`attemptReplay failed; giving up ${JSON.stringify(snapshotDebugState())}`)
+    }
   }
 
   useEffect(() => {
@@ -102,6 +189,14 @@ export default function PlaylistPlaybackPage() {
     const player = audioRef.current
     if (!player || !activeEntry) return
     clearRepeatRestartGuard()
+    pendingEndedActionRef.current = false
+    replayAttemptRef.current = 0
+    lastReplayRequestedAtMsRef.current = 0
+    spuriousReplayWindowStartMsRef.current = 0
+    spuriousReplayCountRef.current = 0
+    playbackGenerationRef.current += 1
+    const generation = playbackGenerationRef.current
+    pushDebug(`loadTrack ${JSON.stringify({ ...snapshotDebugState(), url: 'set', generation })}`)
     ensureFillerPlaying()
     player.src = activeEntry.url
     player.loop = false
@@ -115,13 +210,17 @@ export default function PlaylistPlaybackPage() {
     player
       .play()
       .then(() => {
+        if (playbackGenerationRef.current !== generation) return
         stopFiller(300)
         setIsPlaying(true)
+        pushDebug(`autoplay success ${JSON.stringify(snapshotDebugState())}`)
       })
       .catch(() => {
+        if (playbackGenerationRef.current !== generation) return
         setAutoPlayBlocked(true)
         setIsPlaying(false)
         stopFiller(0)
+        pushDebug(`autoplay blocked ${JSON.stringify(snapshotDebugState())}`)
       })
   }, [activeEntry, currentIndex, ensureFillerPlaying, stopFiller])
 
@@ -129,63 +228,147 @@ export default function PlaylistPlaybackPage() {
     const player = audioRef.current
     if (!player) return undefined
 
-    const handlePlay = () => setIsPlaying(true)
+    const handlePlay = () => {
+      setIsPlaying(true)
+      pushDebug(`event play ${JSON.stringify(snapshotDebugState())}`)
+    }
     const handlePause = () => {
       setIsPlaying(false)
       stopFiller(0)
+      pushDebug(`event pause ${JSON.stringify(snapshotDebugState())}`)
     }
     const handleTime = () => {
       setCurrentTime(player.currentTime)
       maybePrewarm()
+
+      if (debugAudio) {
+        const now = Date.now()
+        if (now - lastTimeUpdateLogMsRef.current > 1200) {
+          lastTimeUpdateLogMsRef.current = now
+          pushDebug(`event timeupdate ${JSON.stringify(snapshotDebugState())}`)
+        }
+      }
     }
     const handleLoaded = () => {
       if (Number.isFinite(player.duration)) {
         setDuration(player.duration)
       }
+      pushDebug(`event loadedmetadata ${JSON.stringify(snapshotDebugState())}`)
     }
     const handleEnded = () => {
-      // iOS Safari (especially on lock screen) can fire multiple `ended` events around
-      // `currentTime = 0` + replay. Without a guard, we may consume multiple repeats
-      // and prematurely advance to the next track.
-      if (repeatRestartGuardRef.current) return
+      if (pendingEndedActionRef.current) return
+
       const list = playlistRef.current
       if (!list) return
       const entry = list.resolved[currentIndexRef.current]
       if (!entry) return
       ensureFillerPlaying()
 
-      const nextCount = playCountRef.current + 1
+      // Guard against duplicate `ended` events / re-entrancy.
+      pendingEndedActionRef.current = true
+      const generation = playbackGenerationRef.current
+      pushDebug(`event ended ${JSON.stringify(snapshotDebugState())}`)
 
-      if (nextCount <= entry.repeats) {
-        armRepeatRestartGuard()
-        playCountRef.current = nextCount
-        setPlayCount(nextCount)
+      const nowMs = Date.now()
+      const ct = Number.isFinite(player.currentTime) ? player.currentTime : 0
+      const dur = Number.isFinite(player.duration) ? player.duration : 0
+      const msSinceReplayRequested = nowMs - lastReplayRequestedAtMsRef.current
+
+      // iOS Safari can emit a burst of spurious `ended` events right after we restart playback for a repeat,
+      // often with `currentTime≈0` and `duration=0`. Retrying immediately in a tight loop causes audible stutter.
+      // We (1) ignore it for repeat counting/advancing, (2) back off retries, (3) cap how long we auto-recover.
+      const looksLikeSpuriousReplayEnd =
+        isLikelyIOS &&
+        lastReplayRequestedAtMsRef.current > 0 &&
+        msSinceReplayRequested >= 0 &&
+        msSinceReplayRequested < 900 &&
+        ct <= 0.05 &&
+        (dur === 0 || dur <= 0.05)
+
+      if (repeatRestartGuardRef.current || looksLikeSpuriousReplayEnd) {
+        if (spuriousReplayWindowStartMsRef.current === 0 || nowMs - spuriousReplayWindowStartMsRef.current > 1000) {
+          spuriousReplayWindowStartMsRef.current = nowMs
+          spuriousReplayCountRef.current = 0
+        }
+        spuriousReplayCountRef.current += 1
+
+        const spuriousCount = spuriousReplayCountRef.current
+        const retries = isLikelyIOS ? 3 : 0
+        const delayMs = Math.min(450, 40 * spuriousCount)
+
+        if (spuriousCount >= 8) {
+          // Give up on automatic recovery for this iteration; prompt user interaction instead of stuttering.
+          player.pause()
+          stopFiller(0)
+          clearRepeatRestartGuard()
+          pendingEndedActionRef.current = false
+          setIsPlaying(false)
+          setAutoPlayBlocked(true)
+          pushDebug(`spurious replay loop; giving up after ${spuriousCount} tries ${JSON.stringify(snapshotDebugState())}`)
+          return
+        }
+
+        pushDebug(
+          `ended during repeatRestartGuard; retry replay retries=${retries} backoff=${delayMs}ms count=${spuriousCount} ${JSON.stringify(snapshotDebugState())}`
+        )
         player.currentTime = 0
-        void player
-          .play()
-          .then(() => stopFiller(180))
-          .catch(() => {
-            setAutoPlayBlocked(true)
-            stopFiller(0)
-          })
-          .finally(() => {
-            // Clear guard on next tick so a genuine end after replay is still handled.
-            queueMicrotask(() => clearRepeatRestartGuard())
-          })
+        window.setTimeout(() => {
+          void attemptReplay(generation, retries)
+        }, delayMs)
         return
+      }
+
+      // Non-iOS browsers use explicit repeat handling via the ended event.
+      if (true) {
+        // Safari (especially on iOS/lock screen) can fire multiple `ended` events around
+        // `currentTime = 0` + replay. Without a guard, we may consume multiple repeats
+        // and prematurely advance to the next track.
+        if (repeatRestartGuardRef.current) return
+
+        const nextCount = playCountRef.current + 1
+
+        if (nextCount <= entry.repeats) {
+          // Keep the guard active long enough to swallow iOS's spurious immediate-ended glitch,
+          // but short enough to not block the *real* ended event at the end of the repeat.
+          armRepeatRestartGuard(350)
+          playCountRef.current = nextCount
+          setPlayCount(nextCount)
+          lastReplayRequestedAtMsRef.current = Date.now()
+          spuriousReplayWindowStartMsRef.current = 0
+          spuriousReplayCountRef.current = 0
+          player.currentTime = 0
+          // Clear the pending lock once replay starts or fails.
+          const retries = isLikelyIOS ? 3 : 0
+          pushDebug(`repeat replay nextCount=${nextCount} retries=${retries} ${JSON.stringify(snapshotDebugState())}`)
+          void attemptReplay(generation, retries)
+          return
+        }
       }
 
       player.currentTime = 0
       player.pause()
       clearRepeatRestartGuard()
+      pendingEndedActionRef.current = false
+      pushDebug(`advance track ${JSON.stringify(snapshotDebugState())}`)
       jumpToIndex(currentIndexRef.current + 1)
     }
+
+    const handleError = () => pushDebug(`event error ${JSON.stringify(snapshotDebugState())}`)
+    const handleStalled = () => pushDebug(`event stalled ${JSON.stringify(snapshotDebugState())}`)
+    const handleWaiting = () => pushDebug(`event waiting ${JSON.stringify(snapshotDebugState())}`)
+    const handleSeeking = () => pushDebug(`event seeking ${JSON.stringify(snapshotDebugState())}`)
+    const handleSeeked = () => pushDebug(`event seeked ${JSON.stringify(snapshotDebugState())}`)
 
     player.addEventListener('play', handlePlay)
     player.addEventListener('pause', handlePause)
     player.addEventListener('timeupdate', handleTime)
     player.addEventListener('loadedmetadata', handleLoaded)
     player.addEventListener('ended', handleEnded)
+    player.addEventListener('error', handleError)
+    player.addEventListener('stalled', handleStalled)
+    player.addEventListener('waiting', handleWaiting)
+    player.addEventListener('seeking', handleSeeking)
+    player.addEventListener('seeked', handleSeeked)
 
     return () => {
       player.removeEventListener('play', handlePlay)
@@ -193,8 +376,13 @@ export default function PlaylistPlaybackPage() {
       player.removeEventListener('timeupdate', handleTime)
       player.removeEventListener('loadedmetadata', handleLoaded)
       player.removeEventListener('ended', handleEnded)
+      player.removeEventListener('error', handleError)
+      player.removeEventListener('stalled', handleStalled)
+      player.removeEventListener('waiting', handleWaiting)
+      player.removeEventListener('seeking', handleSeeking)
+      player.removeEventListener('seeked', handleSeeked)
     }
-  }, [ensureFillerPlaying, maybePrewarm, stopFiller])
+  }, [ensureFillerPlaying, isLikelyIOS, maybePrewarm, stopFiller])
 
   const togglePlayback = () => {
     const player = audioRef.current
@@ -222,6 +410,7 @@ export default function PlaylistPlaybackPage() {
     const list = playlistRef.current
     if (!list || list.resolved.length === 0) return
     clearRepeatRestartGuard()
+    pendingEndedActionRef.current = false
     const size = list.resolved.length
     const nextIndex = ((target % size) + size) % size
     const player = audioRef.current
@@ -230,6 +419,7 @@ export default function PlaylistPlaybackPage() {
     playCountRef.current = 1
     setPlayCount(1)
     setCurrentIndex(nextIndex)
+    pushDebug(`jumpToIndex target=${target} nextIndex=${nextIndex} ${JSON.stringify(snapshotDebugState())}`)
   }
 
   const nextTrack = () => jumpToIndex(currentIndexRef.current + 1)
@@ -348,6 +538,49 @@ export default function PlaylistPlaybackPage() {
           </ul>
         )}
       </div>
+
+      {debugAudio && (
+        <div className="fixed bottom-3 left-3 right-3 z-50 rounded-xl border border-slate-300 bg-white/95 p-3 text-xs text-slate-900 shadow-lg backdrop-blur dark:border-slate-700 dark:bg-slate-950/90 dark:text-slate-100">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <div className="font-semibold">Audio debug</div>
+              <div className="truncate text-[11px] text-slate-600 dark:text-slate-300">
+                {isLikelyIOS ? 'iOS detected' : 'non-iOS'} · idx {currentIndex} · {playCount}/{activeEntry?.repeats ?? '?'}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="rounded-md bg-slate-200 px-2 py-1 font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100"
+                onClick={() => setDebugLines([])}
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                className="rounded-md bg-indigo-600 px-2 py-1 font-semibold text-white"
+                onClick={() => {
+                  const text = debugLines.join('\n')
+                  void navigator.clipboard?.writeText(text).catch(() => {})
+                }}
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+          <div className="max-h-[38vh] overflow-auto rounded-lg bg-slate-50 p-2 font-mono text-[11px] leading-snug dark:bg-slate-900">
+            {debugLines.length === 0 ? (
+              <div className="text-slate-500">(no logs yet)</div>
+            ) : (
+              debugLines.map((line, idx) => (
+                <div key={idx} className="whitespace-pre-wrap">
+                  {line}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

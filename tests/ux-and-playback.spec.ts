@@ -291,6 +291,9 @@ test('playlist playback honours repeat counts before jumping to next track', asy
   })
   await expect(page.getByText(/Now playing: Clip One \(2\/2\)/)).toBeVisible()
 
+  // Wait for the repeat restart guard window to expire; the real second iteration
+  // would end much later than this in practice.
+  await page.waitForTimeout(450)
   await page.evaluate(() => {
     const audio = document.querySelector('audio')
     audio?.dispatchEvent(new Event('ended'))

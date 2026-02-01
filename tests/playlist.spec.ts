@@ -391,6 +391,9 @@ test('playlist advances after exhausting a track\'s repeat count', async ({ page
   await triggerEnded()
   await expect(firstTrack.getByText('Playing')).toBeVisible()
 
+  // The app ignores immediate ended glitches right after replay. In reality the second
+  // iteration ends seconds later, so wait for the guard window to expire.
+  await page.waitForTimeout(450)
   await triggerEnded()
   await expect(secondTrack.getByText('Playing')).toBeVisible()
   await expect(firstTrack.getByText('Playing')).toHaveCount(0)
@@ -426,10 +429,55 @@ test('playlist repeat does not get skipped when ended fires twice quickly', asyn
   await expect(page.getByText(/Now playing: Track One \(2\/2\)/)).toBeVisible()
 
   // Now the real end of the second iteration should advance.
+  await page.waitForTimeout(450)
   await triggerEnded()
   await expect(secondTrack.getByText('Playing')).toBeVisible()
   await expect(firstTrack.getByText('Playing')).toHaveCount(0)
 })
+
+test('playlist repeat does not prematurely advance on spurious ended at t=0', async ({ page }) => {
+  await createPlaylistAtRoot(page, 'Ended At Zero', ['Track One', 'Track Two'], { 'Track One': 2 })
+
+  const firstTrack = page.locator('li', { hasText: 'Track One' })
+  const secondTrack = page.locator('li', { hasText: 'Track Two' })
+
+  await expect(firstTrack.getByText('Playing')).toBeVisible()
+
+  // First ended should trigger the repeat (2/2) without advancing.
+  await page.evaluate(() => {
+    const audio = document.querySelector('audio') as HTMLAudioElement | null
+    audio?.dispatchEvent(new Event('ended'))
+  })
+  await expect(page.getByText(/Now playing: Track One \(2\/2\)/)).toBeVisible()
+  await expect(firstTrack.getByText('Playing')).toBeVisible()
+  await expect(secondTrack.getByText('Playing')).toHaveCount(0)
+
+  // Simulate iOS Safari glitch: immediately after replay starts, it can emit a spurious
+  // ended with currentTime=0 and duration=0. This should NOT advance the playlist.
+  await page.evaluate(() => {
+    const audio = document.querySelector('audio') as HTMLAudioElement | null
+    if (!audio) return
+    audio.currentTime = 0
+    Object.defineProperty(audio, 'duration', { value: 0, configurable: true })
+    audio.dispatchEvent(new Event('ended'))
+  })
+
+  await expect(firstTrack.getByText('Playing')).toBeVisible()
+  await expect(page.getByText(/Now playing: Track One \(2\/2\)/)).toBeVisible()
+  await expect(secondTrack.getByText('Playing')).toHaveCount(0)
+
+  // The real end of the 2nd iteration should advance.
+  await page.waitForTimeout(450)
+  await page.evaluate(() => {
+    const audio = document.querySelector('audio') as HTMLAudioElement | null
+    if (!audio) return
+    Object.defineProperty(audio, 'duration', { value: 2, configurable: true })
+    audio.dispatchEvent(new Event('ended'))
+  })
+  await expect(secondTrack.getByText('Playing')).toBeVisible()
+  await expect(firstTrack.getByText('Playing')).toHaveCount(0)
+})
+
 
 test('shows now playing subtext on first iteration', async ({ page }) => {
   await createPlaylistAtRoot(page, 'Now Playing Copy', ['Solo Clip', 'Second Solo'])
