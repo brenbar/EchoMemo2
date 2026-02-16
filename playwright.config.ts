@@ -13,6 +13,12 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chromium'] },
+      testIgnore: /webkit-audio-smoke\.spec\.ts/,
+    },
+    {
+      name: 'webkit-mobile',
+      use: { ...devices['iPhone 13'] },
+      testMatch: /webkit-audio-smoke\.spec\.ts/,
     },
   ],
   webServer: {

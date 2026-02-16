@@ -9,6 +9,10 @@ import { clearMediaActionHandlers, hasMediaSession, setMediaActionHandler, setMe
 type PlaylistEntryWithUrl = PlaylistResolvedEntry & { url: string }
 type PlaylistWithUrls = Omit<PlaylistWithData, 'resolved'> & { resolved: PlaylistEntryWithUrl[] }
 
+function revokePlaylistUrls(value: PlaylistWithUrls | null) {
+  value?.resolved.forEach((entry) => URL.revokeObjectURL(entry.url))
+}
+
 export default function PlaylistPlaybackPage() {
   const { id } = useParams<{ id: string }>()
   const { fetchPlaylist } = useRecordings()
@@ -150,23 +154,37 @@ export default function PlaylistPlaybackPage() {
     if (!id) return undefined
 
     let active = true
+    setError(null)
+    setAutoPlayBlocked(false)
     fetchPlaylist(id)
       .then((data) => {
         if (!active) return
         if (!data) {
           setError('Playlist not found.')
+          setPlaylist((prev) => {
+            revokePlaylistUrls(prev)
+            return null
+          })
           return
         }
         const withUrls: PlaylistWithUrls = {
           ...data,
           resolved: data.resolved.map((entry) => ({ ...entry, url: URL.createObjectURL(entry.recording.blob) })),
         }
-        setPlaylist(withUrls)
+        setPlaylist((prev) => {
+          revokePlaylistUrls(prev)
+          return withUrls
+        })
         setCurrentIndex(0)
         setPlayCount(1)
       })
       .catch(() => {
-        if (active) setError('Unable to load playlist.')
+        if (!active) return
+        setError('Unable to load playlist.')
+        setPlaylist((prev) => {
+          revokePlaylistUrls(prev)
+          return null
+        })
       })
 
     return () => {
@@ -333,31 +351,28 @@ export default function PlaylistPlaybackPage() {
         return
       }
 
-      // Non-iOS browsers use explicit repeat handling via the ended event.
-      if (true) {
-        // Safari (especially on iOS/lock screen) can fire multiple `ended` events around
-        // `currentTime = 0` + replay. Without a guard, we may consume multiple repeats
-        // and prematurely advance to the next track.
-        if (repeatRestartGuardRef.current) return
+      // Safari (especially on iOS/lock screen) can fire multiple `ended` events around
+      // `currentTime = 0` + replay. Without a guard, we may consume multiple repeats
+      // and prematurely advance to the next track.
+      if (repeatRestartGuardRef.current) return
 
-        const nextCount = playCountRef.current + 1
+      const nextCount = playCountRef.current + 1
 
-        if (nextCount <= entry.repeats) {
-          // Keep the guard active long enough to swallow iOS's spurious immediate-ended glitch,
-          // but short enough to not block the *real* ended event at the end of the repeat.
-          armRepeatRestartGuard(350)
-          playCountRef.current = nextCount
-          setPlayCount(nextCount)
-          lastReplayRequestedAtMsRef.current = Date.now()
-          spuriousReplayWindowStartMsRef.current = 0
-          spuriousReplayCountRef.current = 0
-          player.currentTime = 0
-          // Clear the pending lock once replay starts or fails.
-          const retries = isLikelyIOS ? 3 : 0
-          pushDebug(`repeat replay nextCount=${nextCount} retries=${retries} ${JSON.stringify(snapshotDebugState())}`)
-          void attemptReplay(generation, retries)
-          return
-        }
+      if (nextCount <= entry.repeats) {
+        // Keep the guard active long enough to swallow iOS's spurious immediate-ended glitch,
+        // but short enough to not block the *real* ended event at the end of the repeat.
+        armRepeatRestartGuard(350)
+        playCountRef.current = nextCount
+        setPlayCount(nextCount)
+        lastReplayRequestedAtMsRef.current = Date.now()
+        spuriousReplayWindowStartMsRef.current = 0
+        spuriousReplayCountRef.current = 0
+        player.currentTime = 0
+        // Clear the pending lock once replay starts or fails.
+        const retries = isLikelyIOS ? 3 : 0
+        pushDebug(`repeat replay nextCount=${nextCount} retries=${retries} ${JSON.stringify(snapshotDebugState())}`)
+        void attemptReplay(generation, retries)
+        return
       }
 
       player.currentTime = 0

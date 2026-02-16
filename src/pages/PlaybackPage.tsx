@@ -19,14 +19,30 @@ export default function PlaybackPage() {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const lastPositionStateUpdateMsRef = useRef(0)
+  const requestIdRef = useRef(0)
   const [isScrubbing, setIsScrubbing] = useState(false)
   const scrubRef = useRef<HTMLDivElement | null>(null)
   const { ensureFillerPlaying, stopFiller, maybePrewarm, pauseAll } = useAudioContinuity(audioRef)
 
   useEffect(() => {
     if (!id) return undefined
+    const requestId = requestIdRef.current + 1
+    requestIdRef.current = requestId
+    let cancelled = false
+
+    setError(null)
+    setRecording(null)
+    setCurrentTime(0)
+    setDuration(0)
+    setAutoPlayBlocked(false)
+    setObjectUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+
     fetchRecording(id)
       .then((data) => {
+        if (cancelled || requestIdRef.current !== requestId) return
         if (!data) {
           setError('Recording not found. It may have been deleted.')
           return
@@ -35,8 +51,14 @@ export default function PlaybackPage() {
         setObjectUrl(url)
         setRecording(data)
       })
-      .catch(() => setError('Unable to load recording.'))
-    return undefined
+      .catch(() => {
+        if (!cancelled && requestIdRef.current === requestId) {
+          setError('Unable to load recording.')
+        }
+      })
+    return () => {
+      cancelled = true
+    }
   }, [fetchRecording, id])
 
   useEffect(() => {
@@ -57,6 +79,7 @@ export default function PlaybackPage() {
       .then(() => {
         stopFiller(300)
         setIsPlaying(true)
+        setAutoPlayBlocked(false)
       })
       .catch(() => {
         setAutoPlayBlocked(true)
@@ -69,7 +92,10 @@ export default function PlaybackPage() {
     const player = audioRef.current
     if (!player) return undefined
 
-    const handlePlay = () => setIsPlaying(true)
+    const handlePlay = () => {
+      setIsPlaying(true)
+      setAutoPlayBlocked(false)
+    }
     const handlePause = () => {
       setIsPlaying(false)
       stopFiller(0)
@@ -189,6 +215,7 @@ export default function PlaybackPage() {
         .then(() => {
           stopFiller(250)
           setIsPlaying(true)
+          setAutoPlayBlocked(false)
         })
         .catch(() => {
           setAutoPlayBlocked(true)

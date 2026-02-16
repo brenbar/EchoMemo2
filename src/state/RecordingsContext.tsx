@@ -25,7 +25,7 @@ interface RecordingsContextValue {
   totalBytes: number
   loading: boolean
   activeParentId: string | null
-  refresh(parentId?: string | null): Promise<void>
+  refresh(): Promise<void>
   setActiveParent(parentId: string | null): Promise<void>
   addRecording(input: { name: string; duration: number; blob: Blob; scriptText: string; parent?: string | null }): Promise<void>
   addFolder(input: { name: string; parent?: string | null }): Promise<void>
@@ -52,7 +52,7 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [activeParentId, setActiveParentId] = useState<string | null>(null)
 
-  const refresh = useCallback(async (_parentId: string | null = null) => {
+  const refresh = useCallback(async () => {
     setLoading(true)
     const [list, total] = await Promise.all([listAllItems(), getTotalSize()])
     const combined = sortLibraryItems([...getFreeLibraryItems(), ...list])
@@ -82,10 +82,6 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
       cancelled = true
     }
   }, [refresh])
-
-  useEffect(() => {
-    void refresh(activeParentId)
-  }, [activeParentId, refresh])
 
   const setActiveParent = useCallback(
     async (parentId: string | null) => {
