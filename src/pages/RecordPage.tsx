@@ -14,6 +14,7 @@ export default function RecordPage() {
   const [isRecording, setIsRecording] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showNameModal, setShowNameModal] = useState(false)
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
   const [proposedName, setProposedName] = useState('')
   const [duration, setDuration] = useState(0)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -86,8 +87,14 @@ export default function RecordPage() {
   }
 
   const discardAndExit = () => {
+    setShowDiscardConfirm(false)
     setShowNameModal(false)
     navigate(parentId ? `/folder/${parentId}` : '/')
+  }
+
+  const requestDiscardConfirmation = () => {
+    setShowNameModal(false)
+    setShowDiscardConfirm(true)
   }
 
   const saveRecording = async () => {
@@ -162,7 +169,7 @@ export default function RecordPage() {
       <Modal
         open={showNameModal}
         title="Name your recording"
-        onClose={discardAndExit}
+        onClose={requestDiscardConfirmation}
         footer={
           <>
             <button
@@ -192,6 +199,38 @@ export default function RecordPage() {
             onChange={(e) => setProposedName(e.target.value)}
           />
         </div>
+      </Modal>
+
+      <Modal
+        open={showDiscardConfirm}
+        title="Discard recording?"
+        onClose={() => {
+          setShowDiscardConfirm(false)
+          setShowNameModal(true)
+        }}
+        footer={
+          <>
+            <button
+              className="rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+              onClick={() => {
+                setShowDiscardConfirm(false)
+                setShowNameModal(true)
+              }}
+            >
+              Keep editing
+            </button>
+            <button
+              className="rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500"
+              onClick={discardAndExit}
+            >
+              Discard recording
+            </button>
+          </>
+        }
+      >
+        <p className="text-sm text-slate-700 dark:text-slate-200">
+          You have an unsaved recording. If you discard now, this recording will be lost.
+        </p>
       </Modal>
     </div>
   )

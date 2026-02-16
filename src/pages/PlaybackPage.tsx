@@ -246,6 +246,8 @@ export default function PlaybackPage() {
     setCurrentTime(time)
   }
 
+  const totalDuration = duration || recording?.duration || 0
+
   useEffect(() => {
     if (!isScrubbing) return undefined
     const handleMove = (event: PointerEvent) => {
@@ -320,11 +322,35 @@ export default function PlaybackPage() {
                       commitSeek(time)
                     }
                   }}
+                  tabIndex={0}
                   role="slider"
                   aria-valuemin={0}
-                  aria-valuemax={duration || 0}
+                  aria-valuemax={totalDuration}
                   aria-valuenow={currentTime}
+                  aria-valuetext={formatDuration(currentTime)}
                   aria-label="Seek audio"
+                  onKeyDown={(event) => {
+                    if (!totalDuration) return
+                    if (event.key === 'ArrowLeft') {
+                      event.preventDefault()
+                      commitSeek(Math.max(0, currentTime - 5))
+                      return
+                    }
+                    if (event.key === 'ArrowRight') {
+                      event.preventDefault()
+                      commitSeek(Math.min(totalDuration, currentTime + 5))
+                      return
+                    }
+                    if (event.key === 'Home') {
+                      event.preventDefault()
+                      commitSeek(0)
+                      return
+                    }
+                    if (event.key === 'End') {
+                      event.preventDefault()
+                      commitSeek(totalDuration)
+                    }
+                  }}
                 >
                   <div className="absolute inset-0 overflow-hidden rounded-full">
                     <div

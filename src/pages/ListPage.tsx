@@ -82,7 +82,7 @@ export default function ListPage() {
 
   const moveDisabled = !moveTarget || isSameLocation || isInvalidDestination
   const moveButtonLabel = isSameLocation ? "Stay" : `Move to '${destinationName}'`
-  const headerTitle = activeParentId ? currentFolder?.name ?? 'Folder' : ''
+  const headerTitle = activeParentId ? currentFolder?.name ?? 'Folder' : 'Library'
 
   const getDescendantCount = useCallback(
     (targetId: string) => {
@@ -160,6 +160,7 @@ export default function ListPage() {
                 <button
                   className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                   onClick={() => navigate(backTarget)}
+                  aria-label="Back to parent folder"
                 >
                   <svg
                     aria-hidden
@@ -172,11 +173,13 @@ export default function ListPage() {
                   >
                     <path d="M14 18l-6-6 6-6" />
                   </svg>
-                  {headerTitle && <span className="truncate" aria-hidden={!headerTitle}>{headerTitle}</span>}
+                  <span>Back</span>
                 </button>
               )}
             </div>
-            <div className="flex flex-col items-center text-center justify-self-center" />
+            <div className="flex flex-col items-center text-center justify-self-center">
+              <h1 className="text-base font-semibold text-slate-900 dark:text-slate-50">{headerTitle}</h1>
+            </div>
             <div className="flex items-center justify-end gap-2">
             <button
               className="whitespace-nowrap rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
@@ -340,6 +343,12 @@ export default function ListPage() {
                 <span>I understand this will permanently delete this folder and all nested items.</span>
               </label>
             )}
+          </div>
+        ) : deleteIsPlaylist ? (
+          <div className="space-y-3 text-sm text-slate-700 dark:text-slate-200">
+            <p>
+              This will remove playlist “{deleteTarget?.name ?? 'playlist'}”. Recordings in this playlist will stay in your library.
+            </p>
           </div>
         ) : (
           <div className="space-y-3 text-sm text-slate-700 dark:text-slate-200">

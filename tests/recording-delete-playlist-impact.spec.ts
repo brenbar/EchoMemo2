@@ -113,3 +113,31 @@ test('warns and updates playlists when deleting a recording', async ({ page }) =
   await expect(items).toHaveCount(1)
   await expect(items.first().getByText('Keep Clip', { exact: true })).toBeVisible()
 })
+
+test('deleting a playlist clarifies that recordings remain in the library', async ({ page }) => {
+  await page.goto('/')
+
+  await createRecordingInCurrentView(page, 'Playlist Keep A')
+  await createRecordingInCurrentView(page, 'Playlist Keep B')
+
+  await page.getByRole('button', { name: 'New playlist' }).click()
+  await page.getByLabel('Playlist name').fill('Delete Playlist Copy')
+  await page.getByRole('button', { name: 'Select recordings' }).click()
+  await page.getByLabel('Playlist Keep A').check()
+  await page.getByLabel('Playlist Keep B').check()
+  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByRole('button', { name: 'Save playlist' }).click()
+
+  const playlistRow = page.locator('div[role="button"]', { hasText: 'Delete Playlist Copy' }).first()
+  await playlistRow.getByRole('button', { name: 'Item actions', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Delete' }).click()
+
+  const dialog = page.getByRole('dialog').last()
+  await expect(dialog.getByText(/Recordings in this playlist will stay in your library/i)).toBeVisible()
+  await expect(dialog.getByText(/No playlists currently include this recording/i)).toHaveCount(0)
+
+  await dialog.getByRole('button', { name: 'Delete' }).click()
+  await expect(page.getByText('Delete Playlist Copy')).toHaveCount(0)
+  await expect(page.getByText('Playlist Keep A')).toBeVisible()
+  await expect(page.getByText('Playlist Keep B')).toBeVisible()
+})

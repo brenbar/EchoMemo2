@@ -52,7 +52,11 @@ export default function RecordingRow({ recording, onOpen, onRename, onDelete, on
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' && e.target === e.currentTarget) onOpen()
+        if (e.target !== e.currentTarget) return
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onOpen()
+        }
       }}
     >
       <div className="flex flex-col gap-1">

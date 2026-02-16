@@ -106,6 +106,17 @@ test('user can record and see entry in library', async ({ page }) => {
   await expect(page.locator('div[role="button"]', { hasText: name }).first()).toBeVisible()
 })
 
+test('library row opens on Space key', async ({ page }) => {
+  const name = 'Space key open'
+  await createRecording(page, name)
+
+  const row = page.locator('div[role="button"]', { hasText: name }).first()
+  await row.focus()
+  await page.keyboard.press(' ')
+  await expect(page).toHaveURL(/\/play\//)
+  await expect(page.getByRole('heading', { name })).toBeVisible()
+})
+
 test('user can rename a recording from the library', async ({ page }) => {
   const original = 'Original name'
   const updated = 'Renamed recording'

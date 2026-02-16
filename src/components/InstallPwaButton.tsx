@@ -9,7 +9,7 @@ function isIOS() {
 
 export default function InstallPwaButton() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [showIOSHint, setShowIOSHint] = useState(false)
+  const [installHint, setInstallHint] = useState<'ios' | 'generic' | null>(null)
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -22,11 +22,11 @@ export default function InstallPwaButton() {
 
   const handleInstall = async () => {
     if (isIOS()) {
-      setShowIOSHint(true)
+      setInstallHint('ios')
       return
     }
     if (!deferredPrompt) {
-      setShowIOSHint(true)
+      setInstallHint('generic')
       return
     }
     await deferredPrompt.prompt()
@@ -47,22 +47,28 @@ export default function InstallPwaButton() {
       </div>
 
       <Modal
-        open={showIOSHint}
-        title="Install on iOS"
-        onClose={() => setShowIOSHint(false)}
+        open={installHint !== null}
+        title="Install app"
+        onClose={() => setInstallHint(null)}
         footer={
           <button
             type="button"
-            onClick={() => setShowIOSHint(false)}
+            onClick={() => setInstallHint(null)}
             className="rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
           >
             Got it
           </button>
         }
       >
-        <p className="leading-relaxed text-sm">
-          On iOS Safari, tap the share icon, then choose “Add to Home Screen” to install this app.
-        </p>
+        {installHint === 'ios' ? (
+          <p className="leading-relaxed text-sm">
+            On iOS Safari, tap the share icon, then choose “Add to Home Screen” to install this app.
+          </p>
+        ) : (
+          <p className="leading-relaxed text-sm">
+            This browser does not support the install prompt on this page. Open the browser menu and choose “Install app” or “Add to Home Screen.”
+          </p>
+        )}
       </Modal>
     </>
   )

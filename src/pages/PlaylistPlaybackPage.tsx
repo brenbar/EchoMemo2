@@ -29,6 +29,7 @@ export default function PlaylistPlaybackPage() {
   const [playCount, setPlayCount] = useState(1)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [isScrubbing, setIsScrubbing] = useState(false)
 
   const isLikelyIOS = useMemo(() => {
     if (typeof navigator === 'undefined') return false
@@ -52,6 +53,7 @@ export default function PlaylistPlaybackPage() {
   const lastPositionStateUpdateMsRef = useRef(0)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const scrubRef = useRef<HTMLDivElement | null>(null)
   const playlistRef = useRef<PlaylistWithUrls | null>(null)
   const currentIndexRef = useRef(0)
   const playCountRef = useRef(1)
@@ -260,7 +262,7 @@ export default function PlaylistPlaybackPage() {
       pushDebug(`event pause ${JSON.stringify(snapshotDebugState())}`)
     }
     const handleTime = () => {
-      setCurrentTime(player.currentTime)
+      if (!isScrubbing) setCurrentTime(player.currentTime)
       maybePrewarm()
 
       if (hasMediaSession()) {
@@ -414,7 +416,7 @@ export default function PlaylistPlaybackPage() {
       player.removeEventListener('seeking', handleSeeking)
       player.removeEventListener('seeked', handleSeeked)
     }
-  }, [ensureFillerPlaying, isLikelyIOS, maybePrewarm, stopFiller])
+  }, [ensureFillerPlaying, isLikelyIOS, isScrubbing, maybePrewarm, stopFiller])
 
   const nextTrackRef = useRef<() => void>(() => {})
   const prevTrackRef = useRef<() => void>(() => {})
@@ -440,6 +442,42 @@ export default function PlaylistPlaybackPage() {
       stopFiller(0)
     }
   }
+
+  const seekFromClientX = (clientX: number) => {
+    const bar = scrubRef.current
+    const activeDuration = duration || playlistRef.current?.resolved[currentIndexRef.current]?.recording.duration || 0
+    if (!bar || !activeDuration) return null
+    const rect = bar.getBoundingClientRect()
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+    return ratio * activeDuration
+  }
+
+  const commitSeek = (time: number | null) => {
+    const player = audioRef.current
+    if (!player || time === null) return
+    player.currentTime = time
+    setCurrentTime(time)
+  }
+
+  useEffect(() => {
+    if (!isScrubbing) return undefined
+    const handleMove = (event: PointerEvent) => {
+      event.preventDefault()
+      const time = seekFromClientX(event.clientX)
+      if (time !== null) setCurrentTime(time)
+    }
+    const handleUp = (event: PointerEvent) => {
+      const time = seekFromClientX(event.clientX)
+      commitSeek(time)
+      setIsScrubbing(false)
+    }
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleUp)
+    return () => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleUp)
+    }
+  }, [isScrubbing, duration])
 
   const jumpToIndex = (target: number) => {
     const list = playlistRef.current
@@ -544,6 +582,8 @@ export default function PlaylistPlaybackPage() {
 
   useEffect(() => () => pauseAll(), [pauseAll])
 
+  const totalDuration = duration || activeEntry?.recording.duration || 0
+
   return (
     <div className="grid gap-5 text-slate-900 dark:text-slate-100 lg:grid-cols-[2fr,1fr]">
       <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
@@ -610,10 +650,51 @@ export default function PlaylistPlaybackPage() {
               </svg>
             </button>
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <div className="relative h-3 overflow-hidden rounded-full bg-slate-200/90 shadow-inner dark:bg-slate-700">
+              <div
+                ref={scrubRef}
+                className="relative h-4 cursor-pointer overflow-hidden rounded-full bg-slate-200/90 shadow-inner transition hover:bg-slate-200 dark:bg-slate-700"
+                onPointerDown={(event) => {
+                  if (!totalDuration) return
+                  const time = seekFromClientX(event.clientX)
+                  setIsScrubbing(true)
+                  if (time !== null) {
+                    setCurrentTime(time)
+                    commitSeek(time)
+                  }
+                }}
+                tabIndex={0}
+                role="slider"
+                aria-valuemin={0}
+                aria-valuemax={totalDuration}
+                aria-valuenow={currentTime}
+                aria-valuetext={formatDuration(currentTime)}
+                aria-label="Seek playlist"
+                onKeyDown={(event) => {
+                  if (!totalDuration) return
+                  if (event.key === 'ArrowLeft') {
+                    event.preventDefault()
+                    commitSeek(Math.max(0, currentTime - 5))
+                    return
+                  }
+                  if (event.key === 'ArrowRight') {
+                    event.preventDefault()
+                    commitSeek(Math.min(totalDuration, currentTime + 5))
+                    return
+                  }
+                  if (event.key === 'Home') {
+                    event.preventDefault()
+                    commitSeek(0)
+                    return
+                  }
+                  if (event.key === 'End') {
+                    event.preventDefault()
+                    commitSeek(totalDuration)
+                  }
+                }}
+              >
                 <div
                   className="h-full bg-gradient-to-r from-indigo-500 via-indigo-400 to-sky-400"
-                  style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+                  style={{ width: `${totalDuration ? (currentTime / totalDuration) * 100 : 0}%` }}
                 />
               </div>
               <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300">

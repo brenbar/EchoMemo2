@@ -186,8 +186,7 @@ test('install button triggers beforeinstallprompt prompt when available', async 
     .poll(async () => {
       const promptCalled = await page.evaluate(() => Boolean((window as any).__promptCalled))
       if (promptCalled) return true
-      const iosHintVisible = await page.getByText('Install on iOS').isVisible().catch(() => false)
-      return iosHintVisible
+      return page.getByRole('heading', { name: 'Install app' }).isVisible().catch(() => false)
     })
     .toBe(true)
 })
@@ -199,7 +198,23 @@ test('install button shows iOS hint when prompt is unavailable', async ({ page }
 
   await page.goto('/')
   await page.getByRole('button', { name: 'Install app' }).click()
-  await expect(page.getByText('Install on iOS')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Install app' })).toBeVisible()
+  await expect(page.getByText(/On iOS Safari, tap the share icon/i)).toBeVisible()
+})
+
+test('install button shows generic fallback hint when prompt is unavailable on non-iOS', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', {
+      value:
+        'Mozilla/5.0 (Linux; Android 14; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36',
+      configurable: true,
+    })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Install app' }).click()
+  await expect(page.getByRole('heading', { name: 'Install app' })).toBeVisible()
+  await expect(page.getByText(/does not support the install prompt on this page/i)).toBeVisible()
 })
 
 test('record page surfaces unsupported browser error when MediaRecorder is missing', async ({ page }) => {
@@ -268,6 +283,26 @@ test('record page updates elapsed time while recording', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Stop & save' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Discard' }).click()
+})
+
+test('record naming modal confirms before discarding when closed', async ({ page }) => {
+  await setupDefaultStubs(page)
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'New recording' }).click()
+  await page.locator('textarea').fill('Discard guard clip')
+  await page.getByRole('button', { name: 'Start recording' }).click()
+  await page.getByRole('button', { name: 'Stop & save' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Name your recording' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('heading', { name: 'Discard recording?' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Keep editing' }).click()
+  await expect(page.getByRole('heading', { name: 'Name your recording' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'Discard' }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
 test('recording save stores audio bytes when Blob persistence fails', async ({ page }) => {
@@ -365,13 +400,43 @@ test('playback loops after ended event and allows seeking', async ({ page }) => 
   await expect
     .poll(async () => Number((await slider.getAttribute('aria-valuemax')) || '0'))
     .toBeGreaterThan(0)
-  const box = await slider.boundingBox()
-  if (!box) throw new Error('Slider not found')
-  await slider.click({ position: { x: box.width * 0.7, y: box.height / 2 } })
+  await slider.focus()
+  await page.keyboard.press('ArrowRight')
 
   await expect
     .poll(() => page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement | null)?.currentTime || 0))
     .toBeGreaterThan(0)
+})
+
+test('playback seek slider supports keyboard input', async ({ page }) => {
+  await setupDefaultStubs(page)
+  const name = await createRecording(page, 'Keyboard Seek Clip', 800)
+
+  await page.getByRole('button', { name: new RegExp(name) }).click()
+  await expect(page).toHaveURL(/\/play\//)
+
+  const slider = page.getByRole('slider', { name: 'Seek audio' })
+  await page.evaluate(() => {
+    const audio = document.querySelector('audio') as HTMLAudioElement | null
+    if (audio) {
+      Object.defineProperty(audio, 'duration', { value: 8, configurable: true })
+      audio.dispatchEvent(new Event('loadedmetadata'))
+    }
+  })
+  await expect
+    .poll(async () => Number((await slider.getAttribute('aria-valuemax')) || '0'))
+    .toBeGreaterThan(0)
+
+  await slider.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect
+    .poll(() => page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement | null)?.currentTime || 0))
+    .toBeGreaterThan(0)
+
+  await page.keyboard.press('Home')
+  await expect
+    .poll(() => page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement | null)?.currentTime || 0))
+    .toBeLessThan(0.2)
 })
 
 test('playback shows autoplay banner when play() is blocked', async ({ page }) => {
@@ -421,6 +486,29 @@ test('playlist playback honours repeat counts before jumping to next track', asy
   await expect(page.locator('li', { hasText: 'Clip Two' }).getByText('Playing')).toBeVisible()
 })
 
+test('playlist seek slider supports keyboard input', async ({ page }) => {
+  await setupDefaultStubs(page)
+  await createPlaylist(page, 'Seek Playlist', ['Track A', 'Track B'])
+
+  const slider = page.getByRole('slider', { name: 'Seek playlist' })
+  await page.evaluate(() => {
+    const audio = document.querySelector('audio') as HTMLAudioElement | null
+    if (audio) {
+      Object.defineProperty(audio, 'duration', { value: 9, configurable: true })
+      audio.dispatchEvent(new Event('loadedmetadata'))
+    }
+  })
+  await expect
+    .poll(async () => Number((await slider.getAttribute('aria-valuemax')) || '0'))
+    .toBeGreaterThan(0)
+
+  await slider.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect
+    .poll(() => page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement | null)?.currentTime || 0))
+    .toBeGreaterThan(0)
+})
+
 test('playlist editor disables save without entries and re-disables after removal', async ({ page }) => {
   await setupDefaultStubs(page)
 
@@ -431,7 +519,7 @@ test('playlist editor disables save without entries and re-disables after remova
   await page.getByRole('button', { name: 'Nest' }).click()
   await createRecording(page, 'Nested Clip', 0, { stay: true })
   await createRecording(page, 'Nested Clip 2', 0, { stay: true })
-  await page.getByRole('button', { name: 'Nest', exact: true }).click()
+  await page.getByRole('button', { name: 'Back to parent folder' }).click()
 
   await page.getByRole('button', { name: 'New playlist' }).click()
   const saveButton = page.getByRole('button', { name: 'Save playlist' })
@@ -480,7 +568,7 @@ test('move modal prevents staying put and can move item to root', async ({ page 
   await expect(dialog).not.toBeVisible()
   await expect(page.getByText('Move me')).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Child' }).click()
-  await page.getByRole('button', { name: 'Parent' }).click()
+  await page.getByRole('button', { name: 'Back to parent folder' }).click()
+  await page.getByRole('button', { name: 'Back to parent folder' }).click()
   await expect(page.getByText('Move me')).toBeVisible()
 })
