@@ -63,7 +63,7 @@ test.beforeEach(async ({ page }) => {
 
 test('New menu button does not wrap on mobile', async ({ page }) => {
   await page.goto('/')
-  const newMenuButton = page.getByRole('button', { name: 'New...' })
+  const newMenuButton = page.getByRole('button', { name: 'New…' })
   await expect(newMenuButton).toBeVisible()
   await expect(newMenuButton).toHaveCSS('white-space', 'nowrap')
 })

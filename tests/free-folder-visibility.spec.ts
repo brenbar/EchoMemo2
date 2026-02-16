@@ -14,7 +14,7 @@ test('hides the free folder when host is production-like', async ({ page, contex
   await page.goto('/')
 
   await expect(page.getByRole('button', { name: '_free' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'New...' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'New…' })).toBeVisible()
 })
 
 test('does not offer New playlist when there are no recordings', async ({ page, context }) => {

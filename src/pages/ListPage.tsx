@@ -219,7 +219,7 @@ export default function ListPage() {
                   aria-expanded={createMenuOpen}
                   onClick={() => setCreateMenuOpen((open) => !open)}
                 >
-                  New...
+                  New…
                 </button>
 
                 {createMenuOpen && (

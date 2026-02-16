@@ -4,7 +4,7 @@ import { clickNewAction } from './helpers/newMenu'
 test('modal closes on Escape and restores focus to trigger', async ({ page }, testInfo) => {
   await page.goto('/')
 
-  const trigger = page.getByRole('button', { name: 'New...' })
+  const trigger = page.getByRole('button', { name: 'New…' })
   await trigger.focus()
   await trigger.click()
   await page.getByRole('menuitem', { name: 'New folder' }).click()
