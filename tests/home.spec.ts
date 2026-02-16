@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test'
+import { clickNewAction } from './helpers/newMenu'
 import { ensureRecordingVisible } from './helpers/recordingFallback'
 
 async function setupBrowserStubs(page: Page) {
@@ -61,7 +62,7 @@ async function setupBrowserStubs(page: Page) {
 
 async function createRecording(page: Page, name = 'Sample script for testing') {
   await page.goto('/')
-  await page.getByRole('button', { name: 'New recording' }).click()
+  await clickNewAction(page, 'New recording')
 
   await page.locator('textarea').fill(name)
   await page.getByRole('button', { name: 'Start recording' }).click()

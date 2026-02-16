@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test'
+import { clickNewAction } from './helpers/newMenu'
 import { ensureRecordingVisible } from './helpers/recordingFallback'
 
 async function setupBrowserStubs(page: Page) {
@@ -59,7 +60,7 @@ async function setupBrowserStubs(page: Page) {
 async function createRecordingInCurrentView(page: Page, name: string) {
   const match = page.url().match(/\/folder\/([^/?#]+)/)
   const parentId = match ? decodeURIComponent(match[1]) : null
-  await page.getByRole('button', { name: 'New recording' }).click()
+  await clickNewAction(page, 'New recording')
 
   await page.locator('textarea').fill(name)
   await page.getByRole('button', { name: 'Start recording' }).click()
@@ -82,7 +83,7 @@ async function createPlaylistAtRoot(page: Page, playlistName: string, recordingN
     await createRecordingInCurrentView(page, name)
   }
 
-  await page.getByRole('button', { name: 'New playlist' }).click()
+  await clickNewAction(page, 'New playlist')
   await page.getByLabel('Playlist name').fill(playlistName)
   await page.getByRole('button', { name: 'Select recordings' }).click()
   for (const name of recordingNames) {

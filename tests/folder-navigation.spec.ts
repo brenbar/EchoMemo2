@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test'
+import { clickNewAction } from './helpers/newMenu'
 import { ensureRecordingVisible } from './helpers/recordingFallback'
 
 async function setupBrowserStubs(page: Page) {
@@ -59,7 +60,7 @@ async function setupBrowserStubs(page: Page) {
 async function createRecordingInCurrentView(page: Page, name: string) {
   const match = page.url().match(/\/folder\/([^/?#]+)/)
   const parentId = match ? decodeURIComponent(match[1]) : null
-  await page.getByRole('button', { name: 'New recording' }).click()
+  await clickNewAction(page, 'New recording')
 
   await page.locator('textarea').fill(name)
   await page.getByRole('button', { name: 'Start recording' }).click()
@@ -82,7 +83,7 @@ test('folder view only shows children of that folder', async ({ page }) => {
   await page.goto('/')
   const header = page.locator('section').first()
 
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('My Folder')
   await page.getByRole('button', { name: 'Create' }).click()
   await expect(page.getByText('My Folder')).toBeVisible()
@@ -105,7 +106,7 @@ test('nested folder appears when revisiting parent from root', async ({ page }) 
   await page.goto('/')
 
   // Create parent folder at root.
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Parent Folder')
   await page.getByRole('button', { name: 'Create' }).click()
   await expect(page.getByText('Parent Folder')).toBeVisible()
@@ -113,7 +114,7 @@ test('nested folder appears when revisiting parent from root', async ({ page }) 
   // Enter parent, create child folder.
   await page.getByRole('button', { name: 'Parent Folder' }).click()
   await expect(page).toHaveURL(/\/folder\//)
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Child Folder')
   await page.getByRole('button', { name: 'Create' }).click()
   await expect(page.getByText('Child Folder')).toBeVisible()
@@ -132,7 +133,7 @@ test('back button goes to parent folder when inside nested folder', async ({ pag
   await page.goto('/')
 
   // Create parent folder at root.
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Parent Folder')
   await page.getByRole('button', { name: 'Create' }).click()
 
@@ -142,7 +143,7 @@ test('back button goes to parent folder when inside nested folder', async ({ pag
   const parentUrl = page.url()
 
   // Create nested folder inside parent and enter it.
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Child Folder')
   await page.getByRole('button', { name: 'Create' }).click()
   await page.getByRole('button', { name: 'Child Folder' }).click()
@@ -160,7 +161,7 @@ test('cannot move a folder into itself (or its descendants)', async ({ page }) =
   await page.goto('/')
 
   // Create a folder at root.
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Move Source')
   await page.getByRole('button', { name: 'Create' }).click()
   await expect(page.getByText('Move Source')).toBeVisible()
@@ -168,7 +169,7 @@ test('cannot move a folder into itself (or its descendants)', async ({ page }) =
   // Create a child folder inside it.
   await page.getByRole('button', { name: 'Move Source' }).click()
   await expect(page).toHaveURL(/\/folder\//)
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Move Source Child')
   await page.getByRole('button', { name: 'Create' }).click()
   await expect(page.getByText('Move Source Child')).toBeVisible()
@@ -179,7 +180,7 @@ test('cannot move a folder into itself (or its descendants)', async ({ page }) =
   await expect(page).toHaveURL(/\/(EchoMemo3\/)?$/)
 
   // Create a different destination folder.
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Move Destination')
   await page.getByRole('button', { name: 'Create' }).click()
   await expect(page.getByText('Move Destination')).toBeVisible()
@@ -212,10 +213,10 @@ test('folders and items are alphabetized with folders first', async ({ page }) =
   await page.goto('/')
 
   // Folders (intentionally created out of order).
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Zulu Folder')
   await page.getByRole('button', { name: 'Create' }).click()
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Alpha Folder')
   await page.getByRole('button', { name: 'Create' }).click()
 
@@ -235,13 +236,13 @@ test('folders and items are alphabetized with folders first', async ({ page }) =
 test('move modal lists folders alphabetically', async ({ page }) => {
   await page.goto('/')
 
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Zulu Folder')
   await page.getByRole('button', { name: 'Create' }).click()
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Alpha Folder')
   await page.getByRole('button', { name: 'Create' }).click()
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Beta Folder')
   await page.getByRole('button', { name: 'Create' }).click()
 
@@ -267,7 +268,7 @@ test('move modal lists folders alphabetically', async ({ page }) => {
 test('recording playback back button returns to the source folder', async ({ page }) => {
   await page.goto('/')
 
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Playback Source')
   await page.getByRole('button', { name: 'Create' }).click()
   await page.getByRole('button', { name: 'Playback Source' }).click()
@@ -286,7 +287,7 @@ test('recording playback back button returns to the source folder', async ({ pag
 test('playlist playback back button returns to the source folder', async ({ page }) => {
   await page.goto('/')
 
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Playlist Source')
   await page.getByRole('button', { name: 'Create' }).click()
   await page.getByRole('button', { name: 'Playlist Source' }).click()
@@ -296,7 +297,7 @@ test('playlist playback back button returns to the source folder', async ({ page
   await createRecordingInCurrentView(page, 'Track One')
   await createRecordingInCurrentView(page, 'Track Two')
 
-  await page.getByRole('button', { name: 'New playlist' }).click()
+  await clickNewAction(page, 'New playlist')
   await page.getByLabel('Playlist name').fill('Folder Playlist')
   await page.getByRole('button', { name: 'Select recordings' }).click()
   await page.getByLabel('Track One').check()

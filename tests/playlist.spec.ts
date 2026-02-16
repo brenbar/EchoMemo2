@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test'
+import { clickNewAction } from './helpers/newMenu'
 import { ensureRecordingVisible } from './helpers/recordingFallback'
 
 async function setupBrowserStubs(page: Page) {
@@ -87,7 +88,7 @@ async function setupBrowserStubs(page: Page) {
 async function createRecordingInCurrentView(page: Page, name: string) {
   const match = page.url().match(/\/folder\/([^/?#]+)/)
   const parentId = match ? decodeURIComponent(match[1]) : null
-  await page.getByRole('button', { name: 'New recording' }).click()
+  await clickNewAction(page, 'New recording')
 
   await page.locator('textarea').fill(name)
   await page.getByRole('button', { name: 'Start recording' }).click()
@@ -110,7 +111,7 @@ async function createPlaylistAtRoot(page: Page, playlistName: string, recordingN
     await createRecordingInCurrentView(page, name)
   }
 
-  await page.getByRole('button', { name: 'New playlist' }).click()
+  await clickNewAction(page, 'New playlist')
   await page.getByLabel('Playlist name').fill(playlistName)
   await page.getByRole('button', { name: 'Select recordings' }).click()
   for (const name of recordingNames) {
@@ -149,7 +150,7 @@ test.beforeEach(async ({ page }) => {
 test('user can create a playlist from a folder and adjust repeats', async ({ page }) => {
   await page.goto('/')
 
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Study Pack')
   await page.getByRole('button', { name: 'Create' }).click()
   await expect(page.getByText('Study Pack')).toBeVisible()
@@ -160,7 +161,7 @@ test('user can create a playlist from a folder and adjust repeats', async ({ pag
   await createRecordingInCurrentView(page, 'Clip One')
   await createRecordingInCurrentView(page, 'Clip Two')
 
-  await page.getByRole('button', { name: 'New playlist' }).click()
+  await clickNewAction(page, 'New playlist')
   await page.getByLabel('Playlist name').fill('Study Playlist')
 
   await page.getByRole('button', { name: 'Select recordings' }).click()
@@ -188,7 +189,7 @@ test('playlist editor can select all recordings in the currently viewed folder',
 
   await createRecordingInCurrentView(page, 'Root Clip')
 
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Select-All Folder')
   await page.getByRole('button', { name: 'Create' }).click()
   await expect(page.getByText('Select-All Folder')).toBeVisible()
@@ -199,7 +200,7 @@ test('playlist editor can select all recordings in the currently viewed folder',
   await createRecordingInCurrentView(page, 'Folder Clip One')
   await createRecordingInCurrentView(page, 'Folder Clip Two')
 
-  await page.getByRole('button', { name: 'New playlist' }).click()
+  await clickNewAction(page, 'New playlist')
   await page.getByLabel('Playlist name').fill('Select All Playlist')
 
   await page.getByRole('button', { name: 'Select recordings' }).click()
@@ -236,7 +237,7 @@ test('Select recordings modal caps height and scrolls long lists', async ({ page
     await createRecordingInCurrentView(page, name)
   }
 
-  await page.getByRole('button', { name: 'New playlist' }).click()
+  await clickNewAction(page, 'New playlist')
   await page.getByLabel('Playlist name').fill('Scroll Regression')
 
   await page.getByRole('button', { name: 'Select recordings' }).click()
@@ -359,7 +360,7 @@ test('new playlist requires at least two recordings', async ({ page }) => {
   await createRecordingInCurrentView(page, 'Single Clip')
   await createRecordingInCurrentView(page, 'Another Clip')
 
-  await page.getByRole('button', { name: 'New playlist' }).click()
+  await clickNewAction(page, 'New playlist')
   await page.getByLabel('Playlist name').fill('Minimum Tracks')
 
   await page.getByRole('button', { name: 'Select recordings' }).click()
@@ -383,7 +384,7 @@ test('new playlist requires at least two recordings', async ({ page }) => {
 test('user can edit a playlist from the list row and return to its folder', async ({ page }) => {
   await page.goto('/')
 
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill('Study Pack')
   await page.getByRole('button', { name: 'Create' }).click()
   await page.getByRole('button', { name: 'Study Pack' }).click()
@@ -392,7 +393,7 @@ test('user can edit a playlist from the list row and return to its folder', asyn
   await createRecordingInCurrentView(page, 'Snippet One')
   await createRecordingInCurrentView(page, 'Snippet Two')
 
-  await page.getByRole('button', { name: 'New playlist' }).click()
+  await clickNewAction(page, 'New playlist')
   await page.getByLabel('Playlist name').fill('Folder Playlist')
   await page.getByRole('button', { name: 'Select recordings' }).click()
   await page.getByLabel('Snippet One').check()

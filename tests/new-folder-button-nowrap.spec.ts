@@ -61,9 +61,9 @@ test.beforeEach(async ({ page }) => {
   await setupBrowserStubs(page)
 })
 
-test('New folder button does not wrap on mobile', async ({ page }) => {
+test('New menu button does not wrap on mobile', async ({ page }) => {
   await page.goto('/')
-  const newFolderButton = page.getByRole('button', { name: 'New folder' })
-  await expect(newFolderButton).toBeVisible()
-  await expect(newFolderButton).toHaveCSS('white-space', 'nowrap')
+  const newMenuButton = page.getByRole('button', { name: 'New...' })
+  await expect(newMenuButton).toBeVisible()
+  await expect(newMenuButton).toHaveCSS('white-space', 'nowrap')
 })

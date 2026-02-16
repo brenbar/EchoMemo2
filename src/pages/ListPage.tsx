@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Modal from '../components/Modal'
 import RecordingRow from '../components/RecordingRow'
@@ -31,6 +31,9 @@ export default function ListPage() {
   const [browsePath, setBrowsePath] = useState<{ id: string; name: string }[]>([])
   const [availableFolders, setAvailableFolders] = useState<LibraryItem[]>([])
   const [browseLoading, setBrowseLoading] = useState(false)
+  const [createMenuOpen, setCreateMenuOpen] = useState(false)
+  const createMenuRef = useRef<HTMLDivElement | null>(null)
+  const createMenuTriggerRef = useRef<HTMLButtonElement | null>(null)
 
   const displayedItems = useMemo(
     () => sortLibraryItems(items.filter((item) => (item.parent ?? null) === (activeParentId ?? null))),
@@ -143,6 +146,10 @@ export default function ListPage() {
   const renameIsFolder = renameTarget ? kindOf(renameTarget) === 'folder' : false
   const renameIsPlaylist = renameTarget ? kindOf(renameTarget) === 'playlist' : false
   const renameTitle = renameIsFolder ? 'Rename folder' : renameIsPlaylist ? 'Rename playlist' : 'Rename recording'
+  const hasAnyRecordings = useMemo(
+    () => items.some((item) => kindOf(item) === 'recording'),
+    [items],
+  )
   const deleteTargetPlaylists = useMemo(() => {
     if (!deleteTarget) return []
     if (kindOf(deleteTarget) !== 'recording') return []
@@ -151,8 +158,30 @@ export default function ListPage() {
       .filter((playlist) => playlist.entries?.some((entry) => entry.recordingId === deleteTarget.id))
   }, [deleteTarget, items])
 
+  useEffect(() => {
+    if (!createMenuOpen) return
+
+    const handleOutside = (event: MouseEvent) => {
+      const target = event.target as Node
+      if (createMenuRef.current?.contains(target)) return
+      if (createMenuTriggerRef.current?.contains(target)) return
+      setCreateMenuOpen(false)
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setCreateMenuOpen(false)
+    }
+
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('keyup', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('keyup', handleEscape)
+    }
+  }, [createMenuOpen])
+
   return (
-    <div className="flex flex-col gap-5 pb-24 text-slate-900 dark:text-slate-100">
+    <div className="flex flex-col gap-5 pb-6 text-slate-900 dark:text-slate-100">
         <section className="flex flex-col gap-4 rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
           <div className="grid grid-cols-3 items-center gap-3">
             <div className="flex items-center justify-start gap-2">
@@ -181,18 +210,68 @@ export default function ListPage() {
               <h1 className="text-base font-semibold text-slate-900 dark:text-slate-50">{headerTitle}</h1>
             </div>
             <div className="flex items-center justify-end gap-2">
-            <button
-              className="whitespace-nowrap rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-              onClick={() => {
-                setFolderName('')
-                setFolderModalOpen(true)
-              }}
-            >
-              New folder
-            </button>
+              <div className="relative">
+                <button
+                  ref={createMenuTriggerRef}
+                  type="button"
+                  className="whitespace-nowrap rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                  aria-haspopup="menu"
+                  aria-expanded={createMenuOpen}
+                  onClick={() => setCreateMenuOpen((open) => !open)}
+                >
+                  New...
+                </button>
+
+                {createMenuOpen && (
+                  <div
+                    ref={createMenuRef}
+                    role="menu"
+                    aria-label="Create new item"
+                    className="absolute right-0 top-12 z-40 w-48 rounded-xl border border-slate-200 bg-white/95 p-1 text-sm shadow-lg backdrop-blur dark:border-slate-700 dark:bg-slate-900/95"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-700 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
+                      onClick={() => {
+                        setCreateMenuOpen(false)
+                        createMenuTriggerRef.current?.focus()
+                        setFolderName('')
+                        setFolderModalOpen(true)
+                      }}
+                    >
+                      New folder
+                    </button>
+                    {hasAnyRecordings && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-700 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
+                        onClick={() => {
+                          setCreateMenuOpen(false)
+                          navigate('/playlist/new', { state: { parentId: activeParentId } })
+                        }}
+                      >
+                        New playlist
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-700 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
+                      onClick={() => {
+                        setCreateMenuOpen(false)
+                        navigate('/record', { state: { parentId: activeParentId } })
+                      }}
+                    >
+                      New recording
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
       <section className="flex flex-col gap-3">
         {loading && <div className="text-sm text-slate-500 dark:text-slate-400">Loading your items…</div>}
@@ -239,25 +318,6 @@ export default function ListPage() {
           )
         })}
       </section>
-
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200/80 bg-white/90 backdrop-blur dark:border-slate-800/80 dark:bg-slate-900/90">
-        <div className="mx-auto flex w-full max-w-5xl items-stretch px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-          <div className="my-4 flex w-full gap-3">
-            <button
-              className="w-1/2 rounded-lg bg-slate-900 px-4 py-3 text-base font-semibold text-white shadow-md transition hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-              onClick={() => navigate('/playlist/new', { state: { parentId: activeParentId } })}
-            >
-              New playlist
-            </button>
-            <button
-              className="w-1/2 rounded-lg bg-indigo-600 px-4 py-3 text-base font-semibold text-white shadow-md transition hover:bg-indigo-500"
-              onClick={() => navigate('/record', { state: { parentId: activeParentId } })}
-            >
-              New recording
-            </button>
-          </div>
-        </div>
-      </div>
 
       <Modal
         open={Boolean(renameTarget)}

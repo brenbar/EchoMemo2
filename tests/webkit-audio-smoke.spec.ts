@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { clickNewAction } from './helpers/newMenu'
 
 async function setupAudioStubs(page: Page) {
   await page.addInitScript(() => {
@@ -14,7 +15,7 @@ async function setupAudioStubs(page: Page) {
 }
 
 async function createPlaylistFromFreeSamples(page: Page, playlistName: string) {
-  await page.getByRole('button', { name: 'New playlist' }).click()
+  await clickNewAction(page, 'New playlist')
   await page.getByLabel('Playlist name').fill(playlistName)
   await page.getByRole('button', { name: 'Select recordings' }).click()
 

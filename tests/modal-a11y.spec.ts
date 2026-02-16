@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test'
+import { clickNewAction } from './helpers/newMenu'
 
 test('modal closes on Escape and restores focus to trigger', async ({ page }, testInfo) => {
   await page.goto('/')
 
-  const trigger = page.getByRole('button', { name: 'New folder' })
+  const trigger = page.getByRole('button', { name: 'New...' })
   await trigger.focus()
   await trigger.click()
+  await page.getByRole('menuitem', { name: 'New folder' }).click()
 
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
@@ -28,7 +30,7 @@ test('modal closes on Escape and restores focus to trigger', async ({ page }, te
 test('modal traps keyboard focus while open', async ({ page }) => {
   await page.goto('/')
 
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
 

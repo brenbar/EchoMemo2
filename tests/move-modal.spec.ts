@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test'
+import { clickNewAction } from './helpers/newMenu'
 import { ensureRecordingVisible } from './helpers/recordingFallback'
 
 async function setupBrowserStubs(page: Page) {
@@ -57,7 +58,7 @@ async function setupBrowserStubs(page: Page) {
 }
 
 async function createFolder(page: Page, name: string) {
-  await page.getByRole('button', { name: 'New folder' }).click()
+  await clickNewAction(page, 'New folder')
   await page.getByLabel('Folder name').fill(name)
   await page.getByRole('button', { name: 'Create' }).click()
   await expect(page.locator('div[role="button"]', { hasText: name }).first()).toBeVisible()
@@ -66,7 +67,7 @@ async function createFolder(page: Page, name: string) {
 async function createRecordingInCurrentView(page: Page, name: string) {
   const match = page.url().match(/\/folder\/([^/?#]+)/)
   const parentId = match ? decodeURIComponent(match[1]) : null
-  await page.getByRole('button', { name: 'New recording' }).click()
+  await clickNewAction(page, 'New recording')
 
   await page.locator('textarea').fill(name)
   await page.getByRole('button', { name: 'Start recording' }).click()

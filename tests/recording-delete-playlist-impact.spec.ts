@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test'
+import { clickNewAction } from './helpers/newMenu'
 import { ensureRecordingVisible } from './helpers/recordingFallback'
 
 async function setupBrowserStubs(page: Page) {
@@ -59,7 +60,7 @@ async function setupBrowserStubs(page: Page) {
 async function createRecordingInCurrentView(page: Page, name: string) {
   const match = page.url().match(/\/folder\/([^/?#]+)/)
   const parentId = match ? decodeURIComponent(match[1]) : null
-  await page.getByRole('button', { name: 'New recording' }).click()
+  await clickNewAction(page, 'New recording')
 
   await page.locator('textarea').fill(name)
   await page.getByRole('button', { name: 'Start recording' }).click()
@@ -84,7 +85,7 @@ test('warns and updates playlists when deleting a recording', async ({ page }) =
   await createRecordingInCurrentView(page, 'Keep Clip')
   await createRecordingInCurrentView(page, 'Remove Clip')
 
-  await page.getByRole('button', { name: 'New playlist' }).click()
+  await clickNewAction(page, 'New playlist')
   await page.getByLabel('Playlist name').fill('Mix One')
   await page.getByRole('button', { name: 'Select recordings' }).click()
   await page.getByLabel('Keep Clip').check()
@@ -120,7 +121,7 @@ test('deleting a playlist clarifies that recordings remain in the library', asyn
   await createRecordingInCurrentView(page, 'Playlist Keep A')
   await createRecordingInCurrentView(page, 'Playlist Keep B')
 
-  await page.getByRole('button', { name: 'New playlist' }).click()
+  await clickNewAction(page, 'New playlist')
   await page.getByLabel('Playlist name').fill('Delete Playlist Copy')
   await page.getByRole('button', { name: 'Select recordings' }).click()
   await page.getByLabel('Playlist Keep A').check()

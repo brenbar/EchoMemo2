@@ -1,4 +1,5 @@
 import { devices, expect, test } from '@playwright/test'
+import { clickNewAction } from './helpers/newMenu'
 import { ensureRecordingVisible } from './helpers/recordingFallback'
 
 // iOS Safari auto-zooms inputs with font-size < 16px.
@@ -84,7 +85,7 @@ test.describe('mobile folder creation input', () => {
   test('folder name input is at least 16px (prevents iOS auto-zoom)', async ({ page }) => {
     await page.goto('/')
 
-    await page.getByRole('button', { name: 'New folder' }).click()
+    await clickNewAction(page, 'New folder')
 
     const input = page.getByLabel('Folder name')
     await expect(input).toBeVisible()
@@ -94,7 +95,7 @@ test.describe('mobile folder creation input', () => {
 
   test('recording textboxes are at least 16px on mobile', async ({ page }) => {
     await page.goto('/')
-    await page.getByRole('button', { name: 'New recording' }).click()
+    await clickNewAction(page, 'New recording')
 
     const script = page.locator('textarea')
     await expect(script).toBeVisible()
@@ -115,7 +116,7 @@ test.describe('mobile folder creation input', () => {
     await page.goto('/')
 
     // Folder rename should not say "Rename recording".
-    await page.getByRole('button', { name: 'New folder' }).click()
+    await clickNewAction(page, 'New folder')
     await page.getByLabel('Folder name').fill('Zoom Folder')
     await page.getByRole('button', { name: 'Create' }).click()
 
@@ -127,7 +128,7 @@ test.describe('mobile folder creation input', () => {
     await page.getByRole('button', { name: 'Cancel' }).click()
 
     // Recording rename should say "Rename recording".
-    await page.getByRole('button', { name: 'New recording' }).click()
+    await clickNewAction(page, 'New recording')
     await page.locator('textarea').fill('Zoom Recording')
     await page.getByRole('button', { name: 'Start recording' }).click()
     const stopButton = page.getByRole('button', { name: 'Stop & save' })
