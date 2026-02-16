@@ -33,6 +33,19 @@ export default function RecordPage() {
 
   useEffect(() => () => mediaRecorderRef.current?.stream.getTracks().forEach((t) => t.stop()), [])
 
+  useEffect(() => {
+    if (!isRecording) return undefined
+
+    const updateDuration = () => {
+      if (!startTimeRef.current) return
+      setDuration((Date.now() - startTimeRef.current) / 1000)
+    }
+
+    updateDuration()
+    const timerId = window.setInterval(updateDuration, 250)
+    return () => window.clearInterval(timerId)
+  }, [isRecording])
+
   const startRecording = async () => {
     setError(null)
     if (!('MediaRecorder' in window)) {
@@ -48,6 +61,7 @@ export default function RecordPage() {
       mimeTypeRef.current = recorder.mimeType || 'audio/webm'
       chunksRef.current = []
       startTimeRef.current = Date.now()
+      setDuration(0)
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunksRef.current.push(event.data)
       }
@@ -78,9 +92,13 @@ export default function RecordPage() {
 
   const saveRecording = async () => {
     const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current })
-    await addRecording({ name: proposedName || fallbackName, duration, blob, scriptText: script, parent: parentId })
-    setShowNameModal(false)
-    navigate(parentId ? `/folder/${parentId}` : '/')
+    try {
+      await addRecording({ name: proposedName || fallbackName, duration, blob, scriptText: script, parent: parentId })
+      setShowNameModal(false)
+      navigate(parentId ? `/folder/${parentId}` : '/')
+    } catch {
+      setError('Unable to save recording audio. Free up storage and try again.')
+    }
   }
 
   return (

@@ -262,3 +262,52 @@ test('move modal lists folders alphabetically', async ({ page }) => {
 
   await dialog.getByRole('button', { name: 'Cancel' }).click()
 })
+
+test('recording playback back button returns to the source folder', async ({ page }) => {
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'New folder' }).click()
+  await page.getByLabel('Folder name').fill('Playback Source')
+  await page.getByRole('button', { name: 'Create' }).click()
+  await page.getByRole('button', { name: 'Playback Source' }).click()
+  await expect(page).toHaveURL(/\/folder\//)
+  const folderUrl = page.url()
+
+  await createRecordingInCurrentView(page, 'Folder Clip')
+  await page.getByRole('button', { name: 'Folder Clip' }).click()
+  await expect(page).toHaveURL(/\/play\//)
+
+  await page.getByRole('button', { name: 'Back to list' }).click()
+  await expect(page).toHaveURL(folderUrl)
+  await expect(page.getByRole('button', { name: 'Folder Clip' })).toBeVisible()
+})
+
+test('playlist playback back button returns to the source folder', async ({ page }) => {
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'New folder' }).click()
+  await page.getByLabel('Folder name').fill('Playlist Source')
+  await page.getByRole('button', { name: 'Create' }).click()
+  await page.getByRole('button', { name: 'Playlist Source' }).click()
+  await expect(page).toHaveURL(/\/folder\//)
+  const folderUrl = page.url()
+
+  await createRecordingInCurrentView(page, 'Track One')
+  await createRecordingInCurrentView(page, 'Track Two')
+
+  await page.getByRole('button', { name: 'New playlist' }).click()
+  await page.getByLabel('Playlist name').fill('Folder Playlist')
+  await page.getByRole('button', { name: 'Select recordings' }).click()
+  await page.getByLabel('Track One').check()
+  await page.getByLabel('Track Two').check()
+  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByRole('button', { name: 'Save playlist' }).click()
+
+  await expect(page).toHaveURL(folderUrl)
+  await page.getByRole('button', { name: 'Folder Playlist' }).click()
+  await expect(page).toHaveURL(/\/playlist\//)
+
+  await page.getByRole('button', { name: 'Back to list' }).click()
+  await expect(page).toHaveURL(folderUrl)
+  await expect(page.getByRole('button', { name: 'Folder Playlist' })).toBeVisible()
+})

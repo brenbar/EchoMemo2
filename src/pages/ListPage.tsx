@@ -39,6 +39,7 @@ export default function ListPage() {
   const currentFolder = items.find((item) => item.isFolder && item.id === activeParentId)
   const backTarget = currentFolder?.parent ? `/folder/${currentFolder.parent}` : '/'
   const activeBrowseFolder = browsePath[browsePath.length - 1]
+  const returnTo = folderId ? `/folder/${folderId}` : '/'
   const destinationName =
     activeBrowseFolder?.name ??
     (browseParent
@@ -207,9 +208,9 @@ export default function ListPage() {
                 if (kind === 'folder') {
                   navigate(`/folder/${recording.id}`)
                 } else if (kind === 'playlist') {
-                  navigate(`/playlist/${recording.id}`)
+                  navigate(`/playlist/${recording.id}`, { state: { returnTo } })
                 } else {
-                  navigate(`/play/${recording.id}`)
+                  navigate(`/play/${recording.id}`, { state: { returnTo } })
                 }
               }}
               onRename={() => {

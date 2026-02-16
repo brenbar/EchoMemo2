@@ -3,6 +3,35 @@ import { ensureRecordingVisible } from './helpers/recordingFallback'
 
 async function setupBrowserStubs(page: Page) {
   await page.addInitScript(() => {
+    const createTestWavBlob = () => {
+      const sampleRate = 8000
+      const frameCount = sampleRate
+      const dataLength = frameCount * 2
+      const buffer = new ArrayBuffer(44 + dataLength)
+      const view = new DataView(buffer)
+
+      const write = (offset: number, value: string) => {
+        for (let i = 0; i < value.length; i += 1) {
+          view.setUint8(offset + i, value.charCodeAt(i))
+        }
+      }
+
+      write(0, 'RIFF')
+      view.setUint32(4, 36 + dataLength, true)
+      write(8, 'WAVE')
+      write(12, 'fmt ')
+      view.setUint32(16, 16, true)
+      view.setUint16(20, 1, true)
+      view.setUint16(22, 1, true)
+      view.setUint32(24, sampleRate, true)
+      view.setUint32(28, sampleRate * 2, true)
+      view.setUint16(32, 2, true)
+      view.setUint16(34, 16, true)
+      write(36, 'data')
+      view.setUint32(40, dataLength, true)
+
+      return new window.Blob([buffer], { type: 'audio/wav' })
+    }
 
     class FakeMediaStreamTrack {
       stop() {}
@@ -20,14 +49,13 @@ async function setupBrowserStubs(page: Page) {
       ondataavailable: ((evt: { data: Blob }) => void) | null = null
       onstop: (() => void) | null = null
 
-      constructor(stream: MediaStream, options?: { mimeType?: string }) {
+      constructor(stream: MediaStream) {
         this.stream = stream
-        this.mimeType = options?.mimeType ?? 'audio/webm'
+        this.mimeType = 'audio/wav'
       }
 
       start() {
-        const payload = new Uint8Array(32 * 1024)
-        const blob = new window.Blob([payload], { type: this.mimeType })
+        const blob = createTestWavBlob()
         queueMicrotask(() => this.ondataavailable?.({ data: blob }))
       }
 

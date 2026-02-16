@@ -14,7 +14,11 @@ const DB_NAME = 'EchoMemoNewDB'
 const STORE_NAME = 'recordings'
 const DB_VERSION = 1
 
-type StoredRecordingData = Omit<RecordingWithData, 'blob'> & { blob?: Blob }
+type StoredRecordingData = Omit<RecordingWithData, 'blob'> & {
+  blob?: Blob
+  audioBytes?: ArrayBuffer
+  mimeType?: string
+}
 type RecordingRecord = StoredRecordingData | FolderItem | PlaylistMeta
 
 let dbPromise: Promise<IDBDatabase> | null = null
@@ -119,6 +123,14 @@ function isRecordingRecord(record: RecordingRecord): record is StoredRecordingDa
   return !isFolderRecord(record) && !isPlaylistRecord(record)
 }
 
+function toRecordingMeta(record: StoredRecordingData): RecordingMeta {
+  const { blob: _blob, audioBytes: _audioBytes, mimeType: _mimeType, ...meta } = record
+  void _blob
+  void _audioBytes
+  void _mimeType
+  return meta
+}
+
 function filterByParent<T extends { parent?: string | null }>(records: T[], parent: string | null): T[] {
   return records.filter((record) => (record.parent ?? null) === (parent ?? null))
 }
@@ -170,9 +182,7 @@ export async function listAllItems(): Promise<LibraryItem[]> {
     records.map<LibraryItem>((record) => {
       if (isFolderRecord(record)) return record
       if (isPlaylistRecord(record)) return record
-      const { blob: _blob, ...meta } = record
-      void _blob
-      return meta
+      return toRecordingMeta(record)
     }),
   )
 }
@@ -201,6 +211,7 @@ export async function saveRecording(input: {
     duration: input.duration,
     scriptText: input.scriptText,
     blob: input.blob,
+    mimeType: input.blob.type || 'audio/webm',
     isFolder: false,
   }
 
@@ -213,15 +224,14 @@ export async function saveRecording(input: {
   try {
     await writeRecord(record)
   } catch {
-    // Some WebKit contexts reject Blob serialization in IndexedDB; persist metadata as a fallback.
+    // Some WebKit contexts reject Blob serialization in IndexedDB. Persist bytes as fallback.
     const { blob: _blob, ...withoutBlob } = record
     void _blob
-    await writeRecord(withoutBlob as RecordingRecord)
+    const audioBytes = await input.blob.arrayBuffer()
+    await writeRecord({ ...withoutBlob, audioBytes })
   }
 
-  const { blob: _blob, ...meta } = record
-  void _blob
-  return meta
+  return toRecordingMeta(record)
 }
 
 export async function saveFolder(input: { name: string; parent?: string | null }): Promise<FolderItem> {
@@ -307,11 +317,18 @@ export async function getRecordingWithData(id: string): Promise<RecordingWithDat
 
   await txDone(tx)
   if (!record || !isRecordingRecord(record)) return null
+  const meta = toRecordingMeta(record)
   if (record.blob instanceof Blob) {
-    return { ...record, blob: record.blob }
+    return { ...meta, blob: record.blob }
+  }
+  if (record.audioBytes instanceof ArrayBuffer) {
+    return {
+      ...meta,
+      blob: new Blob([record.audioBytes], { type: record.mimeType || 'audio/webm' }),
+    }
   }
   return {
-    ...record,
+    ...meta,
     blob: createSilentWavBlob(Math.max(1, Math.ceil(record.duration || 1))),
   }
 }
@@ -407,9 +424,7 @@ export async function renameRecording(id: string, name: string): Promise<Library
   store.put(record)
   await txDone(tx)
   if (isFolderRecord(record) || isPlaylistRecord(record)) return record
-  const { blob: _blob, ...meta } = record
-  void _blob
-  return meta
+  return toRecordingMeta(record)
 }
 
 export async function updateParent(id: string, parent: string | null): Promise<LibraryItem | null> {
@@ -472,9 +487,7 @@ export async function updateParent(id: string, parent: string | null): Promise<L
   store.put(record)
   await txDone(tx)
   if (isFolderRecord(record) || isPlaylistRecord(record)) return record
-  const { blob: _blob, ...meta } = record
-  void _blob
-  return meta
+  return toRecordingMeta(record)
 }
 
 export async function getTotalSize(): Promise<number> {

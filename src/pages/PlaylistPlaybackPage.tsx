@@ -18,6 +18,8 @@ export default function PlaylistPlaybackPage() {
   const { fetchPlaylist } = useRecordings()
   const navigate = useNavigate()
   const location = useLocation()
+  const routeState = (location.state as { returnTo?: string } | null) ?? {}
+  const returnTo = routeState.returnTo ?? '/'
 
   const [playlist, setPlaylist] = useState<PlaylistWithUrls | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -548,8 +550,7 @@ export default function PlaylistPlaybackPage() {
         <div className="flex items-start gap-3">
           <button
             className="inline-flex items-center gap-2 rounded-md pr-2 py-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-            onClick={() => navigate('/')}
-            // Always return to list; folder context handled by breadcrumbs there.
+            onClick={() => navigate(returnTo)}
             aria-label="Back to list"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">

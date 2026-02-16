@@ -8,6 +8,36 @@ async function setupDefaultStubs(page: Page) {
       localStorage.setItem('__echoMemoDbCleared', '1')
     }
 
+    const createTestWavBlob = () => {
+      const sampleRate = 8000
+      const frameCount = sampleRate
+      const dataLength = frameCount * 2
+      const buffer = new ArrayBuffer(44 + dataLength)
+      const view = new DataView(buffer)
+
+      const write = (offset: number, value: string) => {
+        for (let i = 0; i < value.length; i += 1) {
+          view.setUint8(offset + i, value.charCodeAt(i))
+        }
+      }
+
+      write(0, 'RIFF')
+      view.setUint32(4, 36 + dataLength, true)
+      write(8, 'WAVE')
+      write(12, 'fmt ')
+      view.setUint32(16, 16, true)
+      view.setUint16(20, 1, true)
+      view.setUint16(22, 1, true)
+      view.setUint32(24, sampleRate, true)
+      view.setUint32(28, sampleRate * 2, true)
+      view.setUint16(32, 2, true)
+      view.setUint16(34, 16, true)
+      write(36, 'data')
+      view.setUint32(40, dataLength, true)
+
+      return new window.Blob([buffer], { type: 'audio/wav' })
+    }
+
     class FakeMediaStreamTrack {
       stop() {}
     }
@@ -24,14 +54,13 @@ async function setupDefaultStubs(page: Page) {
       ondataavailable: ((evt: { data: Blob }) => void) | null = null
       onstop: (() => void) | null = null
 
-      constructor(stream: MediaStream, options?: { mimeType?: string }) {
+      constructor(stream: MediaStream) {
         this.stream = stream
-        this.mimeType = options?.mimeType ?? 'audio/webm'
+        this.mimeType = 'audio/wav'
       }
 
       start() {
-        const payload = new Uint8Array(32 * 1024)
-        const blob = new window.Blob([payload], { type: this.mimeType })
+        const blob = createTestWavBlob()
         queueMicrotask(() => this.ondataavailable?.({ data: blob }))
       }
 
@@ -218,6 +247,86 @@ test('record page surfaces microphone failure error when getUserMedia rejects', 
   await expect(
     page.getByText('Microphone access failed. Ensure the mic permission is allowed and you are on HTTPS.'),
   ).toBeVisible()
+})
+
+test('record page updates elapsed time while recording', async ({ page }) => {
+  await setupDefaultStubs(page)
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'New recording' }).click()
+  await page.getByRole('button', { name: 'Start recording' }).click()
+
+  await expect
+    .poll(async () => {
+      const timerText = await page
+        .locator('div', { hasText: /Recording…\s+0:/ })
+        .last()
+        .textContent()
+      return timerText ?? ''
+    })
+    .toMatch(/Recording…\s+0:0[1-9]/)
+
+  await page.getByRole('button', { name: 'Stop & save' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Discard' }).click()
+})
+
+test('recording save stores audio bytes when Blob persistence fails', async ({ page }) => {
+  await page.addInitScript(() => {
+    const originalPut = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function patchedPut(value: unknown, key?: IDBValidKey) {
+      if (
+        value &&
+        typeof value === 'object' &&
+        'blob' in value &&
+        (value as { blob?: unknown }).blob instanceof Blob
+      ) {
+        throw new DOMException('Blob serialization disabled for test', 'DataCloneError')
+      }
+      return originalPut.call(this, value as unknown, key)
+    }
+  })
+
+  await setupDefaultStubs(page)
+  const name = await createRecording(page, 'Blob fallback clip', 600)
+
+  const stored = await page.evaluate(async (recordingName) => {
+    const request = indexedDB.open('EchoMemoNewDB', 1)
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error ?? new Error('failed to open db'))
+    })
+
+    const record = await new Promise<Record<string, unknown> | undefined>((resolve, reject) => {
+      const tx = db.transaction('recordings', 'readonly')
+      const store = tx.objectStore('recordings')
+      const getAllReq = store.getAll()
+      getAllReq.onsuccess = () => {
+        const all = getAllReq.result as Array<Record<string, unknown>>
+        resolve(all.find((item) => item.name === recordingName))
+      }
+      getAllReq.onerror = () => reject(getAllReq.error ?? new Error('failed to read records'))
+      tx.onerror = () => reject(tx.error ?? new Error('transaction failed'))
+      tx.onabort = () => reject(tx.error ?? new Error('transaction aborted'))
+    })
+
+    db.close()
+
+    if (!record) return null
+    return {
+      hasBlob: record.blob instanceof Blob,
+      hasAudioBytes: record.audioBytes instanceof ArrayBuffer,
+      audioBytesLength: record.audioBytes instanceof ArrayBuffer ? record.audioBytes.byteLength : 0,
+    }
+  }, name)
+
+  expect(stored).not.toBeNull()
+  expect(stored?.hasBlob).toBe(false)
+  expect(stored?.hasAudioBytes).toBe(true)
+  expect((stored?.audioBytesLength ?? 0)).toBeGreaterThan(1000)
+
+  await page.getByRole('button', { name }).click()
+  await expect(page).toHaveURL(/\/play\//)
+  await expect(page.getByRole('heading', { name })).toBeVisible()
 })
 
 test('playback loops after ended event and allows seeking', async ({ page }) => {

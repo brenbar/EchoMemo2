@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useRecordings } from '../state/RecordingsContext'
 import type { RecordingWithData } from '../types'
 import { formatDuration } from '../utils/format'
@@ -9,6 +9,9 @@ import { clearMediaActionHandlers, hasMediaSession, setMediaActionHandler, setMe
 export default function PlaybackPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
+  const routeState = (location.state as { returnTo?: string } | null) ?? {}
+  const returnTo = routeState.returnTo ?? '/'
   const { fetchRecording } = useRecordings()
   const [recording, setRecording] = useState<RecordingWithData | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -271,7 +274,7 @@ export default function PlaybackPage() {
         <div className="flex items-start gap-3">
           <button
             className="inline-flex items-center gap-2 rounded-md pr-2 py-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-            onClick={() => navigate('/')}
+            onClick={() => navigate(returnTo)}
             aria-label="Back to list"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
