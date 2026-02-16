@@ -1,4 +1,4 @@
-# Copilot Instructions
+# Agent Instructions
 
 - If you are implementing a new feature, add new playwright tests for that feature.
 - Before you declare a task complete:

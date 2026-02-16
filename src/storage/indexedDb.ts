@@ -307,7 +307,9 @@ export async function getRecordingWithData(id: string): Promise<RecordingWithDat
 
   await txDone(tx)
   if (!record || !isRecordingRecord(record)) return null
-  if (record.blob instanceof Blob) return record
+  if (record.blob instanceof Blob) {
+    return { ...record, blob: record.blob }
+  }
   return {
     ...record,
     blob: createSilentWavBlob(Math.max(1, Math.ceil(record.duration || 1))),
