@@ -2,8 +2,6 @@ import { expect, test, type Page } from '@playwright/test'
 
 async function setupAudioStubs(page: Page) {
   await page.addInitScript(() => {
-    indexedDB.deleteDatabase('EchoMemoDB')
-    indexedDB.deleteDatabase('EchoMemoNewDB')
 
     Object.defineProperty(HTMLMediaElement.prototype, 'play', {
       configurable: true,

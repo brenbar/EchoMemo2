@@ -11,14 +11,12 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chromium'] },
-      testIgnore: /webkit-audio-smoke\.spec\.ts/,
+      name: 'chromium-android',
+      use: { ...devices['Pixel 5'] },
     },
     {
-      name: 'webkit-mobile',
-      use: { ...devices['iPhone 13'] },
-      testMatch: /webkit-audio-smoke\.spec\.ts/,
+      name: 'webkit-iphone',
+      use: { ...devices['iPhone 15'] },
     },
   ],
   webServer: {

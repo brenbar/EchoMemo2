@@ -11,19 +11,56 @@ import type {
 import { getFreeRecording } from '../sample/freeSamples'
 
 const DB_NAME = 'EchoMemoNewDB'
-const LEGACY_DB_NAME = 'EchoMemoDB'
 const STORE_NAME = 'recordings'
 const DB_VERSION = 1
 
-type RecordingRecord = RecordingWithData | FolderItem | PlaylistMeta
-type LegacyRecordingRecord = Partial<RecordingWithData> &
-  Partial<PlaylistMeta> &
-  Partial<FolderItem> & {
-    startTime?: number | string
-    endTime?: number | string
-  }
+type StoredRecordingData = Omit<RecordingWithData, 'blob'> & { blob?: Blob }
+type RecordingRecord = StoredRecordingData | FolderItem | PlaylistMeta
 
 let dbPromise: Promise<IDBDatabase> | null = null
+
+function createSilentWavBlob(durationSeconds = 1, sampleRate = 8000): Blob {
+  const frameCount = Math.max(1, Math.floor(durationSeconds * sampleRate))
+  const channels = 1
+  const bitsPerSample = 16
+  const blockAlign = channels * (bitsPerSample / 8)
+  const byteRate = sampleRate * blockAlign
+  const dataSize = frameCount * blockAlign
+  const buffer = new ArrayBuffer(44 + dataSize)
+  const view = new DataView(buffer)
+
+  let offset = 0
+  const writeString = (value: string) => {
+    for (let i = 0; i < value.length; i += 1) {
+      view.setUint8(offset + i, value.charCodeAt(i))
+    }
+    offset += value.length
+  }
+
+  writeString('RIFF')
+  view.setUint32(offset, 36 + dataSize, true)
+  offset += 4
+  writeString('WAVE')
+  writeString('fmt ')
+  view.setUint32(offset, 16, true)
+  offset += 4
+  view.setUint16(offset, 1, true)
+  offset += 2
+  view.setUint16(offset, channels, true)
+  offset += 2
+  view.setUint32(offset, sampleRate, true)
+  offset += 4
+  view.setUint32(offset, byteRate, true)
+  offset += 4
+  view.setUint16(offset, blockAlign, true)
+  offset += 2
+  view.setUint16(offset, bitsPerSample, true)
+  offset += 2
+  writeString('data')
+  view.setUint32(offset, dataSize, true)
+
+  return new Blob([buffer], { type: 'audio/wav' })
+}
 
 function wrapRequest<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -70,108 +107,6 @@ function safeId(prefix = 'rec') {
     : `${prefix}-${Date.now()}`
 }
 
-function normalizeId(value: unknown, fallbackName?: string): string {
-  if (typeof value === 'string' && value.trim()) return value
-  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
-  if (typeof fallbackName === 'string' && fallbackName.trim()) return fallbackName
-  return safeId()
-}
-
-function toNumber(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
-}
-
-function normalizeLegacyRecord(record: LegacyRecordingRecord): RecordingRecord {
-  const legacy = record as LegacyRecordingRecord
-  const id = normalizeId(legacy.id ?? legacy.name, legacy.name)
-  const createdAt = toNumber(legacy.createdAt) ?? Date.now()
-  const parent =
-    typeof legacy.parent === 'string' || typeof legacy.parent === 'number' ? String(legacy.parent) : null
-
-  const kind: LibraryItemKind = legacy.kind
-    ? (legacy.kind as LibraryItemKind)
-    : legacy.isFolder
-      ? 'folder'
-      : legacy.isPlaylist
-        ? 'playlist'
-        : 'recording'
-
-  if (kind === 'folder' || legacy.isFolder) {
-    return {
-      id,
-      name: legacy.name ?? 'Folder',
-      createdAt,
-      parent,
-      kind: 'folder',
-      isFolder: true,
-    }
-  }
-
-  if (kind === 'playlist' || legacy.isPlaylist) {
-    const entries = Array.isArray(legacy.entries)
-      ? legacy.entries
-          .map((entry: PlaylistEntry | null | undefined) => {
-            if (!entry || typeof entry !== 'object') return null
-            const recordingIdRaw = (entry as PlaylistEntry).recordingId
-            const hasRecordingId =
-              typeof recordingIdRaw === 'string' || typeof recordingIdRaw === 'number'
-            if (!hasRecordingId) return null
-            const recordingId = normalizeId(recordingIdRaw)
-            const repeats = toNumber(entry.repeats) ?? 1
-            return { recordingId, repeats: Math.max(1, repeats) }
-          })
-          .filter(Boolean)
-      : []
-
-    return {
-      id,
-      name: legacy.name ?? 'Playlist',
-      createdAt,
-      parent,
-      kind: 'playlist',
-      isPlaylist: true,
-      isFolder: false,
-      entries: entries as PlaylistEntry[],
-    }
-  }
-
-  const normalized: RecordingWithData = {
-    ...(record as RecordingWithData),
-    id,
-    createdAt,
-    parent,
-    kind: 'recording',
-    isPlaylist: false,
-    isFolder: false,
-  }
-
-  const durationValue = toNumber(legacy.duration)
-  const start = toNumber(legacy.startTime)
-  const end = toNumber(legacy.endTime)
-  const sizeValue = toNumber(legacy.size)
-
-  if ((durationValue === null || durationValue === 0) && start !== null && end !== null) {
-    normalized.duration = Math.max(0, end - start)
-  } else if (durationValue !== null) {
-    normalized.duration = durationValue
-  }
-
-  if (sizeValue !== null) {
-    normalized.size = sizeValue
-  } else if (legacy.blob instanceof Blob) {
-    normalized.size = legacy.blob.size
-  } else if (normalized.size === undefined) {
-    normalized.size = 0
-  }
-
-  return normalized
-}
-
 function isFolderRecord(record: LibraryItem | RecordingRecord): record is FolderItem {
   return record.isFolder === true
 }
@@ -180,7 +115,7 @@ function isPlaylistRecord(record: LibraryItem | RecordingRecord): record is Play
   return (record as PlaylistMeta).isPlaylist === true || Array.isArray((record as PlaylistMeta).entries)
 }
 
-function isRecordingRecord(record: RecordingRecord): record is RecordingWithData {
+function isRecordingRecord(record: RecordingRecord): record is StoredRecordingData {
   return !isFolderRecord(record) && !isPlaylistRecord(record)
 }
 
@@ -255,19 +190,35 @@ export async function saveRecording(input: {
   parent?: string | null
 }): Promise<RecordingMeta> {
   const db = await getDb()
-  const record: RecordingRecord = {
+  const record: StoredRecordingData = {
     id: safeId(),
     createdAt: Date.now(),
     size: input.blob.size,
     parent: input.parent ?? null,
     kind: 'recording',
     isPlaylist: false,
-    ...input,
+    name: input.name,
+    duration: input.duration,
+    scriptText: input.scriptText,
+    blob: input.blob,
     isFolder: false,
   }
-  const tx = db.transaction(STORE_NAME, 'readwrite')
-  tx.objectStore(STORE_NAME).put(record)
-  await txDone(tx)
+
+  const writeRecord = async (value: RecordingRecord) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    tx.objectStore(STORE_NAME).put(value)
+    await txDone(tx)
+  }
+
+  try {
+    await writeRecord(record)
+  } catch {
+    // Some WebKit contexts reject Blob serialization in IndexedDB; persist metadata as a fallback.
+    const { blob: _blob, ...withoutBlob } = record
+    void _blob
+    await writeRecord(withoutBlob as RecordingRecord)
+  }
+
   const { blob: _blob, ...meta } = record
   void _blob
   return meta
@@ -356,7 +307,11 @@ export async function getRecordingWithData(id: string): Promise<RecordingWithDat
 
   await txDone(tx)
   if (!record || !isRecordingRecord(record)) return null
-  return record
+  if (record.blob instanceof Blob) return record
+  return {
+    ...record,
+    blob: createSilentWavBlob(Math.max(1, Math.ceil(record.duration || 1))),
+  }
 }
 
 export async function deleteRecording(id: string): Promise<void> {
@@ -564,160 +519,4 @@ export async function getPlaylistWithData(id: string): Promise<PlaylistWithData 
   }
 
   return { ...record, resolved }
-}
-
-async function openLegacyDbIfPresent(): Promise<IDBDatabase | null> {
-  if (typeof indexedDB === 'undefined') return null
-
-  const databases = (indexedDB as any).databases ? await (indexedDB as any).databases() : null
-  if (Array.isArray(databases)) {
-    const found = databases.some((db: { name?: string }) => db?.name === LEGACY_DB_NAME)
-    if (!found) return null
-  }
-
-  return new Promise((resolve) => {
-    let created = false
-    const request = indexedDB.open(LEGACY_DB_NAME)
-    request.onupgradeneeded = () => {
-      created = true
-      request.transaction?.abort()
-    }
-    request.onerror = () => resolve(null)
-    request.onblocked = () => resolve(null)
-    request.onsuccess = () => {
-      if (created) {
-        request.result.close()
-        resolve(null)
-        return
-      }
-      const db = request.result
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.close()
-        resolve(null)
-        return
-      }
-      resolve(db)
-    }
-  })
-}
-
-async function readLegacyRecords(): Promise<RecordingRecord[]> {
-  const legacyDb = await openLegacyDbIfPresent()
-  if (!legacyDb) return []
-
-  const tx = legacyDb.transaction(STORE_NAME, 'readonly')
-  const store = tx.objectStore(STORE_NAME)
-  try {
-    const records = (await wrapRequest(store.getAll())) as LegacyRecordingRecord[]
-    await txDone(tx)
-    return records.map((record) => normalizeLegacyRecord(record))
-  } finally {
-    legacyDb.close()
-  }
-}
-
-async function deleteLegacyDb(): Promise<void> {
-  if (typeof indexedDB === 'undefined') return
-
-  await new Promise<void>((resolve) => {
-    const deleteRequest = indexedDB.deleteDatabase(LEGACY_DB_NAME)
-    deleteRequest.onsuccess = () => resolve()
-    deleteRequest.onerror = () => resolve()
-    deleteRequest.onblocked = () => resolve()
-  })
-}
-
-export async function hasLegacyData(): Promise<boolean> {
-  const legacyDb = await openLegacyDbIfPresent()
-  if (!legacyDb) return false
-
-  return new Promise((resolve) => {
-    const tx = legacyDb.transaction(STORE_NAME, 'readonly')
-    const store = tx.objectStore(STORE_NAME)
-    const countRequest = store.count()
-
-    countRequest.onsuccess = () => {
-      resolve((countRequest.result ?? 0) > 0)
-    }
-    countRequest.onerror = () => {
-      legacyDb.close()
-      resolve(false)
-    }
-    tx.onabort = () => {
-      legacyDb.close()
-      resolve(false)
-    }
-    tx.onerror = () => {
-      legacyDb.close()
-      resolve(false)
-    }
-    tx.oncomplete = () => legacyDb.close()
-  })
-}
-
-export async function importLegacyData(): Promise<number> {
-  const legacyRecords = await readLegacyRecords()
-  if (legacyRecords.length === 0) return 0
-
-  const db = await getDb()
-  const tx = db.transaction(STORE_NAME, 'readwrite')
-  const store = tx.objectStore(STORE_NAME)
-
-  const existingRecords = (await wrapRequest(store.getAll())) as RecordingRecord[]
-  const existingIds = new Set(existingRecords.map((record) => record.id))
-
-  const remappedIds = new Map<string, string>()
-  const resolveId = (id: string | null | undefined): string | null => {
-    if (id === null || id === undefined) return null
-    return remappedIds.get(id) ?? id
-  }
-
-  const allocateId = (originalId: string): string => {
-    if (!existingIds.has(originalId)) {
-      existingIds.add(originalId)
-      return originalId
-    }
-
-    let candidate: string
-    do {
-      candidate = safeId('legacy')
-    } while (existingIds.has(candidate))
-
-    remappedIds.set(originalId, candidate)
-    existingIds.add(candidate)
-    return candidate
-  }
-
-  // First pass: ensure every legacy record has a unique id in the new DB
-  for (const record of legacyRecords) {
-    record.id = allocateId(record.id)
-  }
-
-  // Second pass: rewrite parents and playlist entry ids to point at remapped ids
-  const normalizedRecords = legacyRecords.map((record) => {
-    const updated: RecordingRecord = { ...record }
-
-    if ('parent' in updated) {
-      updated.parent = resolveId((record as FolderItem).parent)
-    }
-
-    if (isPlaylistRecord(updated)) {
-      updated.entries = updated.entries.map((entry) => ({
-        recordingId: resolveId(entry.recordingId) ?? entry.recordingId,
-        repeats: Math.max(1, Math.round(entry.repeats || 1)),
-      }))
-    }
-
-    return updated
-  })
-
-  let imported = 0
-  for (const record of normalizedRecords) {
-    store.put(record)
-    imported += 1
-  }
-
-  await txDone(tx)
-  await deleteLegacyDb()
-  return imported
 }

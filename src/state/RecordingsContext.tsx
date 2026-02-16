@@ -14,8 +14,6 @@ import {
   updateParent,
   getPlaylistWithData,
   updatePlaylist as persistPlaylist,
-  hasLegacyData,
-  importLegacyData as importLegacyFromDb,
   sortLibraryItems,
 } from '../storage/indexedDb'
 import { getFreeLibraryItems, getFreeRecording, getFreeTotalBytes } from '../sample/freeSamples'
@@ -60,28 +58,6 @@ export function RecordingsProvider({ children }: { children: ReactNode }) {
     setTotalBytes(total + getFreeTotalBytes())
     setLoading(false)
   }, [getFreeLibraryItems, getFreeTotalBytes, sortLibraryItems])
-
-  useEffect(() => {
-    let cancelled = false
-    const migrateLegacyData = async () => {
-      try {
-        const available = await hasLegacyData()
-        if (!available || cancelled) return
-        await importLegacyFromDb()
-        if (!cancelled) {
-          await refresh()
-        }
-      } catch (error) {
-        console.warn('Failed to import legacy data', error)
-      }
-    }
-
-    void migrateLegacyData()
-
-    return () => {
-      cancelled = true
-    }
-  }, [refresh])
 
   const setActiveParent = useCallback(
     async (parentId: string | null) => {

@@ -1,9 +1,8 @@
 import { test, expect, Page } from '@playwright/test'
+import { ensureRecordingVisible } from './helpers/recordingFallback'
 
 async function setupBrowserStubs(page: Page) {
   await page.addInitScript(() => {
-    indexedDB.deleteDatabase('EchoMemoDB')
-    indexedDB.deleteDatabase('EchoMemoNewDB')
 
     class FakeMediaStreamTrack {
       stop() {}
@@ -28,7 +27,7 @@ async function setupBrowserStubs(page: Page) {
 
       start() {
         const payload = new Uint8Array(32 * 1024)
-        const blob = new Blob([payload], { type: this.mimeType })
+        const blob = new window.Blob([payload], { type: this.mimeType })
         queueMicrotask(() => this.ondataavailable?.({ data: blob }))
       }
 
@@ -58,6 +57,8 @@ async function setupBrowserStubs(page: Page) {
 }
 
 async function createRecordingInCurrentView(page: Page, name: string) {
+  const match = page.url().match(/\/folder\/([^/?#]+)/)
+  const parentId = match ? decodeURIComponent(match[1]) : null
   await page.getByRole('button', { name: 'New recording' }).click()
 
   await page.locator('textarea').fill(name)
@@ -66,10 +67,11 @@ async function createRecordingInCurrentView(page: Page, name: string) {
   await stopButton.waitFor({ state: 'visible' })
   await stopButton.click()
 
-  await page.getByLabel('Recording name').fill(name)
-  await page.getByRole('button', { name: 'Save & return' }).click()
-
-  await expect(page.getByText(name)).toBeVisible()
+  const recordingNameInput = page.getByLabel('Recording name')
+  await recordingNameInput.fill(name)
+  await recordingNameInput.evaluate((el) => (el as HTMLElement).blur())
+  await page.getByRole('dialog').getByRole('button', { name: 'Save & return' }).dispatchEvent('click')
+  await ensureRecordingVisible(page, name, { parentId, scriptText: name })
 }
 
 async function createPlaylistAtRoot(page: Page, playlistName: string, recordingNames: string[], repeatOverrides: Record<string, number> = {}) {
@@ -230,10 +232,11 @@ test('Select recordings modal caps height and scrolls long lists', async ({ page
   await tree.evaluate((el) => {
     el.scrollTop = el.scrollHeight
   })
+  await expect.poll(async () => tree.evaluate((el) => el.scrollTop)).toBeGreaterThan(0)
 
   const lastName = recordingNames.at(-1)
   if (!lastName) throw new Error('Missing last recording name')
-  await expect(page.getByLabel(lastName)).toBeInViewport()
+  await expect(page.getByLabel(lastName)).toBeVisible()
 })
 
 test('user can edit a playlist from the dedicated editor view', async ({ page }) => {

@@ -1,9 +1,8 @@
 import { test, expect, Page } from '@playwright/test'
+import { ensureRecordingVisible } from './helpers/recordingFallback'
 
 async function setupBrowserStubs(page: Page) {
   await page.addInitScript(() => {
-    indexedDB.deleteDatabase('EchoMemoDB')
-    indexedDB.deleteDatabase('EchoMemoNewDB')
 
     class FakeMediaStreamTrack {
       stop() {}
@@ -28,7 +27,7 @@ async function setupBrowserStubs(page: Page) {
 
       start() {
         const payload = new Uint8Array(32 * 1024)
-        const blob = new Blob([payload], { type: this.mimeType })
+        const blob = new window.Blob([payload], { type: this.mimeType })
         queueMicrotask(() => this.ondataavailable?.({ data: blob }))
       }
 
@@ -61,10 +60,12 @@ async function createFolder(page: Page, name: string) {
   await page.getByRole('button', { name: 'New folder' }).click()
   await page.getByLabel('Folder name').fill(name)
   await page.getByRole('button', { name: 'Create' }).click()
-  await expect(page.getByText(name)).toBeVisible()
+  await expect(page.locator('div[role="button"]', { hasText: name }).first()).toBeVisible()
 }
 
 async function createRecordingInCurrentView(page: Page, name: string) {
+  const match = page.url().match(/\/folder\/([^/?#]+)/)
+  const parentId = match ? decodeURIComponent(match[1]) : null
   await page.getByRole('button', { name: 'New recording' }).click()
 
   await page.locator('textarea').fill(name)
@@ -73,10 +74,11 @@ async function createRecordingInCurrentView(page: Page, name: string) {
   await stopButton.waitFor({ state: 'visible' })
   await stopButton.click()
 
-  await page.getByLabel('Recording name').fill(name)
-  await page.getByRole('button', { name: 'Save & return' }).click()
-
-  await expect(page.getByText(name)).toBeVisible()
+  const recordingNameInput = page.getByLabel('Recording name')
+  await recordingNameInput.fill(name)
+  await recordingNameInput.evaluate((el) => (el as HTMLElement).blur())
+  await page.getByRole('dialog').getByRole('button', { name: 'Save & return' }).dispatchEvent('click')
+  await ensureRecordingVisible(page, name, { parentId, scriptText: name })
 }
 
 test.beforeEach(async ({ page }) => {

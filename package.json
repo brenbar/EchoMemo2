@@ -8,8 +8,8 @@
     "build": "mkdir -p .tmp && TMPDIR=\"$PWD/.tmp\" tsc -b && TMPDIR=\"$PWD/.tmp\" vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:e2e": "mkdir -p .tmp && TMPDIR=\"$PWD/.tmp\" playwright test --project=chromium --project=webkit-mobile",
-    "test:e2e:chromium": "mkdir -p .tmp && TMPDIR=\"$PWD/.tmp\" playwright test --project=chromium",
+    "test:e2e": "mkdir -p .tmp && TMPDIR=\"$PWD/.tmp\" playwright test --project=chromium-android --project=webkit-iphone",
+    "test:e2e:chromium": "mkdir -p .tmp && TMPDIR=\"$PWD/.tmp\" playwright test --project=chromium-android",
     "typecheck": "tsc --noEmit",
     "postbuild": "cp -f dist/index.html dist/404.html"
   },

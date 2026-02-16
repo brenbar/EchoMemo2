@@ -4,8 +4,6 @@ const HOST_OVERRIDE = 'prod.example.com'
 
 async function setupProdLikeHost(context: BrowserContext) {
   await context.addInitScript(({ hostOverride }) => {
-    indexedDB.deleteDatabase('EchoMemoDB')
-    indexedDB.deleteDatabase('EchoMemoNewDB')
     ;(window as any).__ECHO_MEMO_HOST_OVERRIDE__ = hostOverride
   }, { hostOverride: HOST_OVERRIDE })
 }

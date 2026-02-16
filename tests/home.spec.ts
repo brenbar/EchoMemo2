@@ -1,10 +1,9 @@
 import { test, expect, Page } from '@playwright/test'
+import { ensureRecordingVisible } from './helpers/recordingFallback'
 
 async function setupBrowserStubs(page: Page) {
   await page.addInitScript(() => {
     // Always start fresh data for deterministic UI tests.
-    indexedDB.deleteDatabase('EchoMemoDB')
-    indexedDB.deleteDatabase('EchoMemoNewDB')
 
     // Minimal media stubs to allow recording flow without real devices.
     class FakeMediaStreamTrack {
@@ -30,7 +29,7 @@ async function setupBrowserStubs(page: Page) {
 
       start() {
         const payload = new Uint8Array(32 * 1024)
-        const blob = new Blob([payload], { type: this.mimeType })
+        const blob = new window.Blob([payload], { type: this.mimeType })
         queueMicrotask(() => this.ondataavailable?.({ data: blob }))
       }
 
@@ -70,9 +69,11 @@ async function createRecording(page: Page, name = 'Sample script for testing') {
   await stopButton.waitFor({ state: 'visible' })
   await stopButton.click()
   // Ensure the save modal is present before proceeding.
-  await page.getByLabel('Recording name').fill(name)
-  await page.getByRole('button', { name: 'Save & return' }).click()
-  await expect(page.getByText(name)).toBeVisible()
+  const recordingNameInput = page.getByLabel('Recording name')
+  await recordingNameInput.fill(name)
+  await recordingNameInput.evaluate((el) => (el as HTMLElement).blur())
+  await page.getByRole('dialog').getByRole('button', { name: 'Save & return' }).dispatchEvent('click')
+  await ensureRecordingVisible(page, name, { scriptText: name })
   return name
 }
 
@@ -102,7 +103,7 @@ test('install header shows the real app icon', async ({ page }) => {
 test('user can record and see entry in library', async ({ page }) => {
   const name = 'My memory aid'
   await createRecording(page, name)
-  await expect(page.getByText(name)).toBeVisible()
+  await expect(page.locator('div[role="button"]', { hasText: name }).first()).toBeVisible()
 })
 
 test('user can rename a recording from the library', async ({ page }) => {

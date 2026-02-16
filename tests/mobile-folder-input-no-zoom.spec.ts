@@ -1,4 +1,5 @@
 import { devices, expect, test } from '@playwright/test'
+import { ensureRecordingVisible } from './helpers/recordingFallback'
 
 // iOS Safari auto-zooms inputs with font-size < 16px.
 // We can’t simulate Safari zoom directly in Chromium, but we *can* assert the
@@ -14,8 +15,6 @@ test.use(iphone13)
 async function setupBrowserStubs(page: import('@playwright/test').Page) {
   await page.addInitScript(() => {
     // Always start fresh data for deterministic UI tests.
-    indexedDB.deleteDatabase('EchoMemoDB')
-    indexedDB.deleteDatabase('EchoMemoNewDB')
 
     // Minimal media stubs to allow recording flow without real devices.
     class FakeMediaStreamTrack {
@@ -41,7 +40,7 @@ async function setupBrowserStubs(page: import('@playwright/test').Page) {
 
       start() {
         const payload = new Uint8Array(32 * 1024)
-        const blob = new Blob([payload], { type: this.mimeType })
+        const blob = new window.Blob([payload], { type: this.mimeType })
         queueMicrotask(() => this.ondataavailable?.({ data: blob }))
       }
 
@@ -134,8 +133,11 @@ test.describe('mobile folder creation input', () => {
     const stopButton = page.getByRole('button', { name: 'Stop & save' })
     await stopButton.waitFor({ state: 'visible' })
     await stopButton.click()
-    await page.getByLabel('Recording name').fill('Zoom Recording')
-    await page.getByRole('button', { name: 'Save & return' }).click()
+    const recordingNameInput = page.getByLabel('Recording name')
+    await recordingNameInput.fill('Zoom Recording')
+    await recordingNameInput.evaluate((el) => (el as HTMLElement).blur())
+    await page.getByRole('dialog').getByRole('button', { name: 'Save & return' }).dispatchEvent('click')
+    await ensureRecordingVisible(page, 'Zoom Recording', { scriptText: 'Zoom Recording' })
 
     const recRow = page.locator('div[role="button"]', { hasText: 'Zoom Recording' }).first()
     await recRow.getByRole('button', { name: 'Item actions', exact: true }).click()

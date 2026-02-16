@@ -2,8 +2,6 @@ import { test, expect, Page } from '@playwright/test'
 
 async function setupBrowserStubs(page: Page) {
   await page.addInitScript(() => {
-    indexedDB.deleteDatabase('EchoMemoDB')
-    indexedDB.deleteDatabase('EchoMemoNewDB')
 
     class FakeMediaStreamTrack {
       stop() {}
@@ -28,7 +26,7 @@ async function setupBrowserStubs(page: Page) {
 
       start() {
         const payload = new Uint8Array(32 * 1024)
-        const blob = new Blob([payload], { type: this.mimeType })
+        const blob = new window.Blob([payload], { type: this.mimeType })
         queueMicrotask(() => this.ondataavailable?.({ data: blob }))
       }
 

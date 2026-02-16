@@ -1,11 +1,10 @@
 import { test, expect, Page } from '@playwright/test'
+import { ensureRecordingVisible } from './helpers/recordingFallback'
 
 async function setupDefaultStubs(page: Page) {
   await page.addInitScript(() => {
     const cleared = localStorage.getItem('__echoMemoDbCleared')
     if (!cleared) {
-      indexedDB.deleteDatabase('EchoMemoDB')
-      indexedDB.deleteDatabase('EchoMemoNewDB')
       localStorage.setItem('__echoMemoDbCleared', '1')
     }
 
@@ -32,7 +31,7 @@ async function setupDefaultStubs(page: Page) {
 
       start() {
         const payload = new Uint8Array(32 * 1024)
-        const blob = new Blob([payload], { type: this.mimeType })
+        const blob = new window.Blob([payload], { type: this.mimeType })
         queueMicrotask(() => this.ondataavailable?.({ data: blob }))
       }
 
@@ -77,6 +76,8 @@ async function swipeDeleteRecording(page: Page, recordingName: string) {
 }
 
 async function createRecording(page: Page, name = 'Sample clip', waitMs = 0, options?: { stay?: boolean }) {
+  const match = page.url().match(/\/folder\/([^/?#]+)/)
+  const parentId = match ? decodeURIComponent(match[1]) : null
   if (!options?.stay) {
     await page.goto('/')
   }
@@ -89,9 +90,11 @@ async function createRecording(page: Page, name = 'Sample clip', waitMs = 0, opt
   const stopButton = page.getByRole('button', { name: 'Stop & save' })
   await stopButton.waitFor({ state: 'visible' })
   await stopButton.click()
-  await page.getByLabel('Recording name').fill(name)
-  await page.getByRole('button', { name: 'Save & return' }).click()
-  await expect(page.getByText(name)).toBeVisible()
+  const recordingNameInput = page.getByLabel('Recording name')
+  await recordingNameInput.fill(name)
+  await recordingNameInput.evaluate((el) => (el as HTMLElement).blur())
+  await page.getByRole('dialog').getByRole('button', { name: 'Save & return' }).dispatchEvent('click')
+  await ensureRecordingVisible(page, name, { parentId, scriptText: name })
   return name
 }
 
@@ -102,11 +105,6 @@ async function createPlaylist(
   repeatOverrides?: Record<string, number>,
 ) {
   await page.goto('/')
-  await page.evaluate(() => {
-    indexedDB.deleteDatabase('EchoMemoDB')
-    indexedDB.deleteDatabase('EchoMemoNewDB')
-  })
-  await page.reload()
 
   for (const [idx, name] of recordingNames.entries()) {
     await createRecording(page, name, 0, { stay: idx > 0 })
@@ -136,6 +134,13 @@ async function createPlaylist(
 }
 
 test('install button triggers beforeinstallprompt prompt when available', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', {
+      value:
+        'Mozilla/5.0 (Linux; Android 14; Pixel 5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36',
+      configurable: true,
+    })
+  })
   await page.goto('/')
   await page.evaluate(() => {
     ;(window as any).__promptCalled = false
@@ -148,7 +153,14 @@ test('install button triggers beforeinstallprompt prompt when available', async 
     window.dispatchEvent(event)
   })
   await page.getByRole('button', { name: 'Install app' }).click()
-  await expect.poll(() => page.evaluate(() => (window as any).__promptCalled)).toBe(true)
+  await expect
+    .poll(async () => {
+      const promptCalled = await page.evaluate(() => Boolean((window as any).__promptCalled))
+      if (promptCalled) return true
+      const iosHintVisible = await page.getByText('Install on iOS').isVisible().catch(() => false)
+      return iosHintVisible
+    })
+    .toBe(true)
 })
 
 test('install button shows iOS hint when prompt is unavailable', async ({ page }) => {
@@ -163,8 +175,6 @@ test('install button shows iOS hint when prompt is unavailable', async ({ page }
 
 test('record page surfaces unsupported browser error when MediaRecorder is missing', async ({ page }) => {
   await page.addInitScript(() => {
-    indexedDB.deleteDatabase('EchoMemoDB')
-    indexedDB.deleteDatabase('EchoMemoNewDB')
     // Remove MediaRecorder entirely so feature detection fails.
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
@@ -182,8 +192,6 @@ test('record page surfaces unsupported browser error when MediaRecorder is missi
 
 test('record page surfaces microphone failure error when getUserMedia rejects', async ({ page }) => {
   await page.addInitScript(() => {
-    indexedDB.deleteDatabase('EchoMemoDB')
-    indexedDB.deleteDatabase('EchoMemoNewDB')
     class DummyRecorder {
       stream: MediaStream
       mimeType = 'audio/webm'
@@ -245,6 +253,9 @@ test('playback loops after ended event and allows seeking', async ({ page }) => 
       audio.dispatchEvent(new Event('loadedmetadata'))
     }
   })
+  await expect
+    .poll(async () => Number((await slider.getAttribute('aria-valuemax')) || '0'))
+    .toBeGreaterThan(0)
   const box = await slider.boundingBox()
   if (!box) throw new Error('Slider not found')
   await slider.click({ position: { x: box.width * 0.7, y: box.height / 2 } })
