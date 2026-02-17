@@ -109,16 +109,13 @@ export default function RecordPage() {
   }
 
   return (
-    <div className="grid gap-5 pb-24 text-slate-900 dark:text-slate-100 lg:grid-cols-[2fr,1fr]">
+    <div className="flex flex-col gap-5 pb-32 text-slate-900 dark:text-slate-100">
       <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm uppercase tracking-wide text-slate-500 dark:text-slate-400">Prepare</p>
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-50">Paste your script</h2>
           </div>
-          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isRecording ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-200' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200'}`}>
-            {isRecording ? 'Recording…' : 'Idle'}
-          </span>
         </div>
         <textarea
           value={script}
@@ -128,18 +125,6 @@ export default function RecordPage() {
           placeholder="Paste or type what you want to memorize. The text stays visible while you record."
         />
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
-      </div>
-
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-4 shadow-inner dark:border-slate-700 dark:bg-slate-900/60">
-        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Safari note</h3>
-        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-          On iOS Safari, start recording after tapping the microphone permission. Keep this page open; backgrounding the app may stop the recording. Use wired or Bluetooth mics for clearer capture.
-        </p>
-        {isRecording && (
-          <div className="mt-4 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-100">
-            Recording… {duration ? formatDuration(duration) : ''}
-          </div>
-        )}
       </div>
 
       <Modal
@@ -210,7 +195,12 @@ export default function RecordPage() {
       </Modal>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-slate-700 dark:bg-slate-950/90">
-        <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
+        <div className="mx-auto flex w-full max-w-5xl flex-col gap-2">
+          {isRecording && (
+            <div className="w-full rounded-xl bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-100">
+              Recording… {duration ? formatDuration(duration) : ''}
+            </div>
+          )}
           <div data-testid="record-page-floating-footer" className="flex w-full items-center gap-3">
             <button
               className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:bg-slate-800"
