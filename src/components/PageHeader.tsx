@@ -19,7 +19,7 @@ export default function PageHeader({
 }: PageHeaderProps) {
   return (
     <section className="-mx-4 -mt-6 bg-slate-100/90 px-4 pb-4 pt-4 shadow-sm dark:bg-slate-900/85">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-center gap-3">
         <div className="flex items-center justify-start">
           {onBack && (
             <button
@@ -43,7 +43,7 @@ export default function PageHeader({
             </button>
           )}
         </div>
-        <h1 className={`text-center ${titleClassName}`}>{title}</h1>
+        <h1 className={`min-w-0 truncate text-center ${titleClassName}`}>{title}</h1>
         <div className="flex items-center justify-end">{rightSlot}</div>
       </div>
     </section>

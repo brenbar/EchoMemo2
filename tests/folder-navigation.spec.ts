@@ -157,6 +157,34 @@ test('back button goes to parent folder when inside nested folder', async ({ pag
   await expect(page.getByText('Child Folder')).toBeVisible()
 })
 
+test('long folder title does not overlap the back button on narrow screens', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 })
+  await page.goto('/')
+
+  const longName = 'Folder ' + 'very-long-name-'.repeat(10)
+
+  await clickNewAction(page, 'New folder')
+  await page.getByLabel('Folder name').fill(longName)
+  await page.getByRole('button', { name: 'Create' }).click()
+
+  await page.getByRole('button', { name: longName }).click()
+  await expect(page).toHaveURL(/\/folder\//)
+
+  const backButton = page.getByRole('button', { name: 'Back to parent folder' })
+  const headerTitle = page.getByRole('heading', { name: longName })
+  await expect(backButton).toBeVisible()
+  await expect(headerTitle).toBeVisible()
+  await expect(headerTitle).toHaveCSS('text-overflow', 'ellipsis')
+
+  const backBox = await backButton.boundingBox()
+  const titleBox = await headerTitle.boundingBox()
+  expect(backBox).not.toBeNull()
+  expect(titleBox).not.toBeNull()
+  if (!backBox || !titleBox) return
+
+  expect(titleBox.x).toBeGreaterThanOrEqual(backBox.x + backBox.width - 1)
+})
+
 test('cannot move a folder into itself (or its descendants)', async ({ page }) => {
   await page.goto('/')
 
