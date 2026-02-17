@@ -182,7 +182,7 @@ export default function ListPage() {
 
   return (
     <div className="flex flex-col gap-5 pb-6 text-slate-900 dark:text-slate-100">
-        <section className="flex flex-col gap-4 rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
+        <section className="-mx-4 -mt-6 flex flex-col gap-4 bg-slate-100/90 px-4 pb-4 pt-4 shadow-sm dark:bg-slate-900/85">
           <div className="grid grid-cols-3 items-center gap-3">
             <div className="flex items-center justify-start gap-2">
               {activeParentId && (
