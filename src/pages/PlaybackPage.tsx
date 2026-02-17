@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import PageHeader from '../components/PageHeader'
 import { useRecordings } from '../state/RecordingsContext'
 import type { RecordingWithData } from '../types'
 import { formatDuration } from '../utils/format'
@@ -271,23 +272,15 @@ export default function PlaybackPage() {
   useEffect(() => () => pauseAll(), [pauseAll])
 
   return (
-    <div className="grid gap-5 text-slate-900 dark:text-slate-100 lg:grid-cols-[2fr,1fr]">
-      <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
-        <div className="flex items-start gap-3">
-          <button
-            className="inline-flex items-center gap-2 rounded-md pr-2 py-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-            onClick={() => navigate(returnTo)}
-            aria-label="Back to list"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 5.75 9.25 12l6.25 6.25" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 12h14" />
-            </svg>
-          </button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">{recording?.name ?? 'Loading…'}</h1>
-          </div>
-        </div>
+    <div className="flex flex-col gap-5 text-slate-900 dark:text-slate-100">
+      <PageHeader
+        title={recording?.name ?? 'Loading…'}
+        onBack={() => navigate(returnTo)}
+        backAriaLabel="Back to list"
+        titleClassName="text-lg font-bold text-slate-900 dark:text-slate-50"
+      />
+      <div className="grid gap-5 lg:grid-cols-[2fr,1fr]">
+        <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
         <div className="pt-4 mt-5 flex flex-col gap-3">
           <audio ref={audioRef} className="hidden" />
@@ -378,11 +371,12 @@ export default function PlaybackPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-4 shadow-inner dark:border-slate-700 dark:bg-slate-900/60">
-        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Script</h3>
-        <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">
-          {recording?.scriptText || 'Script not available.'}
-        </p>
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-4 shadow-inner dark:border-slate-700 dark:bg-slate-900/60">
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Script</h3>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">
+            {recording?.scriptText || 'Script not available.'}
+          </p>
+        </div>
       </div>
     </div>
   )

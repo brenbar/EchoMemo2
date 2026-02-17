@@ -2,6 +2,7 @@ import type React from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import Modal from '../components/Modal'
+import PageHeader from '../components/PageHeader'
 import { useRecordings } from '../state/RecordingsContext'
 import type { LibraryItem, LibraryItemKind, RecordingMeta } from '../types'
 import { formatDuration } from '../utils/format'
@@ -253,27 +254,11 @@ export default function PlaylistEditorPage() {
 
   return (
     <div className="flex flex-col gap-5 pb-24 text-slate-900 dark:text-slate-100">
-      <div className="flex items-center justify-between gap-3">
-        <button
-          className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-          onClick={goBack}
-        >
-          <svg
-            aria-hidden
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            className="h-4 w-4"
-          >
-            <path d="M14 18l-6-6 6-6" />
-          </svg>
-          Back
-        </button>
-        <h1 className="text-lg font-bold">{isEditMode ? 'Edit playlist' : 'New playlist'}</h1>
-        <div className="w-16" />
-      </div>
+      <PageHeader
+        title={isEditMode ? 'Edit playlist' : 'New playlist'}
+        onBack={goBack}
+        backAriaLabel="Back to list"
+      />
 
       {loadError && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-100">

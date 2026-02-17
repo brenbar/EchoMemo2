@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Modal from '../components/Modal'
+import PageHeader from '../components/PageHeader'
 import RecordingRow from '../components/RecordingRow'
 import { useRecordings } from '../state/RecordingsContext'
 import type { LibraryItem, LibraryItemKind, PlaylistMeta } from '../types'
@@ -182,35 +183,13 @@ export default function ListPage() {
 
   return (
     <div className="flex flex-col gap-5 pb-6 text-slate-900 dark:text-slate-100">
-        <section className="-mx-4 -mt-6 flex flex-col gap-4 bg-slate-100/90 px-4 pb-4 pt-4 shadow-sm dark:bg-slate-900/85">
-          <div className="grid grid-cols-3 items-center gap-3">
-            <div className="flex items-center justify-start gap-2">
-              {activeParentId && (
-                <button
-                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-                  onClick={() => navigate(backTarget)}
-                  aria-label="Back to parent folder"
-                >
-                  <svg
-                    aria-hidden
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    className="h-4 w-4"
-                  >
-                    <path d="M14 18l-6-6 6-6" />
-                  </svg>
-                  <span>Back</span>
-                </button>
-              )}
-            </div>
-            <div className="flex flex-col items-center text-center justify-self-center">
-              <h1 className="text-base font-semibold text-slate-900 dark:text-slate-50">{headerTitle}</h1>
-            </div>
-            <div className="flex items-center justify-end gap-2">
-              <div className="relative">
+      <PageHeader
+        title={headerTitle}
+        titleClassName="text-base font-semibold text-slate-900 dark:text-slate-50"
+        onBack={activeParentId ? () => navigate(backTarget) : undefined}
+        backAriaLabel="Back to parent folder"
+        rightSlot={(
+          <div className="relative">
                 <button
                   ref={createMenuTriggerRef}
                   type="button"
@@ -306,10 +285,9 @@ export default function ListPage() {
                     </button>
                   </div>
                 )}
-              </div>
-            </div>
           </div>
-        </section>
+        )}
+      />
 
       <section className="flex flex-col gap-3">
         {loading && <div className="text-sm text-slate-500 dark:text-slate-400">Loading your items…</div>}

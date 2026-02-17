@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import PageHeader from '../components/PageHeader'
 import { useRecordings } from '../state/RecordingsContext'
 import type { PlaylistWithData, PlaylistResolvedEntry } from '../types'
 import { formatDuration } from '../utils/format'
@@ -585,30 +586,22 @@ export default function PlaylistPlaybackPage() {
   const totalDuration = duration || activeEntry?.recording.duration || 0
 
   return (
-    <div className="grid gap-5 text-slate-900 dark:text-slate-100 lg:grid-cols-[2fr,1fr]">
-      <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
-        <div className="flex items-start gap-3">
-          <button
-            className="inline-flex items-center gap-2 rounded-md pr-2 py-1 text-slate-700 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
-            onClick={() => navigate(returnTo)}
-            aria-label="Back to list"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.5 5.75 9.25 12l6.25 6.25" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 12h14" />
-            </svg>
-          </button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">{playlist?.name ?? 'Loading…'}</h1>
-            {activeEntry && (
-              <p className="text-sm text-slate-600 dark:text-slate-300">
-                Now playing: {activeEntry.recording.name} ({playCount}/{activeEntry.repeats})
-              </p>
-            )}
-          </div>
-        </div>
+    <div className="flex flex-col gap-5 text-slate-900 dark:text-slate-100">
+      <PageHeader
+        title={playlist?.name ?? 'Loading…'}
+        onBack={() => navigate(returnTo)}
+        backAriaLabel="Back to list"
+        titleClassName="text-lg font-bold text-slate-900 dark:text-slate-50"
+      />
+      <div className="grid gap-5 lg:grid-cols-[2fr,1fr]">
+        <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
 
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+        {activeEntry && (
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            Now playing: {activeEntry.recording.name} ({playCount}/{activeEntry.repeats})
+          </p>
+        )}
 
         <div className="pt-4 mt-5 flex flex-col gap-4">
           <audio ref={audioRef} className="hidden" />
@@ -711,29 +704,30 @@ export default function PlaylistPlaybackPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-4 shadow-inner dark:border-slate-700 dark:bg-slate-900/60">
-        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Playlist items</h3>
-        {playlist?.resolved.length === 0 && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">No recordings available.</p>}
-        {playlist && playlist.resolved.length > 0 && (
-          <ul className="mt-3 flex flex-col gap-2">
-            {playlist.resolved.map((entry, idx) => (
-              <li
-                key={entry.recording.id ?? `${idx}`}
-                className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm ${
-                  idx === currentIndex ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-100' : 'bg-white/60 text-slate-800 dark:bg-slate-900/70 dark:text-slate-100'
-                }`}
-              >
-                <div className="flex flex-col">
-                  <span className="font-semibold">{entry.recording.name}</span>
-                  <span className="text-xs text-slate-500 dark:text-slate-300">
-                    {formatDuration(entry.recording.duration)} · repeats {entry.repeats}
-                  </span>
-                </div>
-                {idx === currentIndex && <span className="text-xs font-semibold">Playing</span>}
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-4 shadow-inner dark:border-slate-700 dark:bg-slate-900/60">
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Playlist items</h3>
+          {playlist?.resolved.length === 0 && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">No recordings available.</p>}
+          {playlist && playlist.resolved.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-2">
+              {playlist.resolved.map((entry, idx) => (
+                <li
+                  key={entry.recording.id ?? `${idx}`}
+                  className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm ${
+                    idx === currentIndex ? 'bg-indigo-50 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-100' : 'bg-white/60 text-slate-800 dark:bg-slate-900/70 dark:text-slate-100'
+                  }`}
+                >
+                  <div className="flex flex-col">
+                    <span className="font-semibold">{entry.recording.name}</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-300">
+                      {formatDuration(entry.recording.duration)} · repeats {entry.repeats}
+                    </span>
+                  </div>
+                  {idx === currentIndex && <span className="text-xs font-semibold">Playing</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       {debugAudio && (

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Modal from '../components/Modal'
+import PageHeader from '../components/PageHeader'
 import { useRecordings } from '../state/RecordingsContext'
 import { formatDuration } from '../utils/format'
 
@@ -116,6 +117,12 @@ export default function RecordPage() {
 
   return (
     <div className="flex flex-col gap-5 pb-32 text-slate-900 dark:text-slate-100">
+      <PageHeader
+        title="New recording"
+        onBack={() => navigate(parentId ? `/folder/${parentId}` : '/')}
+        backAriaLabel="Back to list"
+        backDisabled={isRecording}
+      />
       <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
         <div className="flex items-center justify-between gap-3">
           <div>
