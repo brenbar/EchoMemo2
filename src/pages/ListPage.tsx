@@ -240,6 +240,17 @@ export default function ListPage() {
                         setFolderModalOpen(true)
                       }}
                     >
+                      <svg
+                        aria-hidden
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        className="h-4 w-4"
+                      >
+                        <path d="M3 18.5V7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z" />
+                      </svg>
                       New folder
                     </button>
                     {hasAnyRecordings && (
@@ -252,6 +263,20 @@ export default function ListPage() {
                           navigate('/playlist/new', { state: { parentId: activeParentId } })
                         }}
                       >
+                        <svg
+                          aria-hidden
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.6"
+                          className="h-4 w-4"
+                        >
+                          <path d="M5 5h14" />
+                          <path d="M5 10h10" />
+                          <path d="M5 15h14" />
+                          <circle cx="16" cy="18" r="2" />
+                        </svg>
                         New playlist
                       </button>
                     )}
@@ -264,6 +289,19 @@ export default function ListPage() {
                         navigate('/record', { state: { parentId: activeParentId } })
                       }}
                     >
+                      <svg
+                        aria-hidden
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        className="h-4 w-4"
+                      >
+                        <path d="M7 4.5h6.5a2 2 0 0 1 1.6.8l2.7 3.7a2 2 0 0 1 .4 1.2V18a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2Z" />
+                        <path d="M12 10v4" />
+                        <path d="M12 16h0.01" />
+                      </svg>
                       New recording
                     </button>
                   </div>

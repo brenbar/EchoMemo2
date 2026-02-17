@@ -22,7 +22,12 @@ test('does not offer New playlist when there are no recordings', async ({ page, 
   await page.goto('/')
 
   await openNewMenu(page)
-  await expect(page.getByRole('menuitem', { name: 'New folder' })).toBeVisible()
-  await expect(page.getByRole('menuitem', { name: 'New recording' })).toBeVisible()
+  const newFolderAction = page.getByRole('menuitem', { name: 'New folder' })
+  const newRecordingAction = page.getByRole('menuitem', { name: 'New recording' })
+
+  await expect(newFolderAction).toBeVisible()
+  await expect(newRecordingAction).toBeVisible()
+  await expect(newFolderAction.locator('svg')).toBeVisible()
+  await expect(newRecordingAction.locator('svg')).toBeVisible()
   await expect(page.getByRole('menuitem', { name: 'New playlist' })).toHaveCount(0)
 })
