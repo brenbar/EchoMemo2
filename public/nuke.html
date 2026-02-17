@@ -88,6 +88,9 @@
       <p>
         After cleanup, it reloads you back to the app base path.
       </p>
+      <p>
+        For safety, cleanup must be started manually on this page.
+      </p>
 
       <div class="row">
         <button id="run">Run cleanup</button>
@@ -165,9 +168,13 @@
         location.assign(url.toString());
       });
 
-      // Auto-run when opened with ?autorun=1
-      if (new URLSearchParams(location.search).get('autorun') === '1') {
-        void cleanup();
+      // Prevent clickjacking-triggered cleanup from embedded frames.
+      if (window.top !== window.self) {
+        runBtn.disabled = true;
+        reloadBtn.disabled = true;
+        log('Cleanup is disabled in embedded frames. Open this page directly.');
+      } else if (new URLSearchParams(location.search).get('autorun') === '1') {
+        log('Auto-run via URL is disabled for safety. Tap “Run cleanup” manually.');
       } else {
         log('Ready. Tap “Run cleanup”.');
       }

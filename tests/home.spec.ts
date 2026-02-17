@@ -101,6 +101,13 @@ test('install header shows the real app icon', async ({ page }) => {
   await expect(appIcon).toHaveAttribute('src', /EchoMemo192\.png/)
 })
 
+test('app shell publishes a CSP meta policy', async ({ page }) => {
+  await page.goto('/')
+  const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content')
+  expect(csp).toContain("default-src 'self'")
+  expect(csp).toContain("object-src 'none'")
+})
+
 test('user can record and see entry in library', async ({ page }) => {
   const name = 'My memory aid'
   await createRecording(page, name)
