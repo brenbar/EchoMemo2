@@ -1,6 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
 import { clickNewAction } from './helpers/newMenu'
 
+test.skip(({ browserName }) => browserName !== 'webkit', 'WebKit smoke coverage only')
+
 async function setupAudioStubs(page: Page) {
   await page.addInitScript(() => {
 

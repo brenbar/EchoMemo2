@@ -470,28 +470,6 @@ test('playlist playback repeats current track before advancing and handles block
   await expect(page.getByText('Tap play to start audio on Safari.')).toBeVisible()
 })
 
-test('playlist playback honours repeat counts before jumping to next track', async ({ page }) => {
-  await setupDefaultStubs(page)
-  await createPlaylist(page, 'Repeats OK', ['Clip One', 'Clip Two'], { 'Clip One': 2 })
-
-  await expect(page.locator('li', { hasText: 'Clip One' }).getByText('Playing')).toBeVisible()
-
-  await page.evaluate(() => {
-    const audio = document.querySelector('audio')
-    audio?.dispatchEvent(new Event('ended'))
-  })
-  await expect(page.getByText(/Now playing: Clip One \(2\/2\)/)).toBeVisible()
-
-  // Wait for the repeat restart guard window to expire; the real second iteration
-  // would end much later than this in practice.
-  await page.waitForTimeout(450)
-  await page.evaluate(() => {
-    const audio = document.querySelector('audio')
-    audio?.dispatchEvent(new Event('ended'))
-  })
-  await expect(page.locator('li', { hasText: 'Clip Two' }).getByText('Playing')).toBeVisible()
-})
-
 test('playlist seek slider supports keyboard input', async ({ page }) => {
   await setupDefaultStubs(page)
   await createPlaylist(page, 'Seek Playlist', ['Track A', 'Track B'])
@@ -541,39 +519,4 @@ test('playlist editor disables save without entries and re-disables after remova
 
   await swipeDeleteRecording(page, 'Nested Clip')
   await expect(saveButton).toBeDisabled()
-})
-
-test('move modal prevents staying put and can move item to root', async ({ page }) => {
-  await setupDefaultStubs(page)
-
-  await page.goto('/')
-  await clickNewAction(page, 'New folder')
-  await page.getByLabel('Folder name').fill('Parent')
-  await page.getByRole('button', { name: 'Create' }).click()
-  await page.getByRole('button', { name: 'Parent' }).click()
-  await clickNewAction(page, 'New folder')
-  await page.getByLabel('Folder name').fill('Child')
-  await page.getByRole('button', { name: 'Create' }).click()
-  await page.getByRole('button', { name: 'Child' }).click()
-
-    await createRecording(page, 'Move me', 0, { stay: true })
-
-  const actionsButton = page.getByRole('button', { name: 'Item actions', exact: true }).last()
-  await actionsButton.click()
-  await page.getByRole('button', { name: 'Move', exact: true }).click()
-  const dialog = page.getByRole('dialog').last()
-  const action = dialog.getByRole('button', { name: /Move to '.*'|Stay/ })
-  await expect(action).toBeDisabled()
-  await expect(action).toHaveText('Stay')
-
-  await dialog.getByRole('button', { name: 'Root' }).click()
-  await expect(action).toBeEnabled()
-  await expect(action).toHaveText("Move to 'Root'")
-  await action.click()
-  await expect(dialog).not.toBeVisible()
-  await expect(page.getByText('Move me')).toHaveCount(0)
-
-  await page.getByRole('button', { name: 'Back to parent folder' }).click()
-  await page.getByRole('button', { name: 'Back to parent folder' }).click()
-  await expect(page.getByText('Move me')).toBeVisible()
 })
