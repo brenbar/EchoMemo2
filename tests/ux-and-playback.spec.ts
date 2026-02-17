@@ -364,7 +364,8 @@ test('recording save stores audio bytes when Blob persistence fails', async ({ p
 
   await page.getByRole('button', { name }).click()
   await expect(page).toHaveURL(/\/play\//)
-  await expect(page.getByRole('heading', { name })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Recording', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name, level: 2 })).toBeVisible()
 })
 
 test('playback loops after ended event', async ({ page }) => {

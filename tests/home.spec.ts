@@ -132,7 +132,8 @@ test('library row opens on Space key', async ({ page }) => {
   await row.focus()
   await page.keyboard.press(' ')
   await expect(page).toHaveURL(/\/play\//)
-  await expect(page.getByRole('heading', { name })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Recording', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name, level: 2 })).toBeVisible()
 })
 
 test('user can rename a recording from the library', async ({ page }) => {
@@ -173,7 +174,8 @@ test('user can open playback page and see script', async ({ page }) => {
   await createRecording(page, script)
 
   await page.getByRole('button', { name: new RegExp(script) }).click()
-  await expect(page.getByRole('heading', { name: script })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Recording', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: script, level: 2 })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Script', exact: true })).toBeVisible()
   await expect(page.locator('p', { hasText: script }).first()).toBeVisible()
   await expect(page.getByRole('button', { name: /Play|Pause/ })).toBeVisible()
@@ -184,7 +186,8 @@ test('user can play a free sample without saving to IndexedDB', async ({ page })
   await page.getByRole('button', { name: '_free' }).click()
   await page.getByRole('button', { name: 'Free 440 Hz' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Free 440 Hz' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Recording', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Free 440 Hz', level: 2 })).toBeVisible()
   await expect(page.getByText('Free 440 Hz (2 second test tone)')).toBeVisible()
   await expect(page.getByRole('button', { name: /Play|Pause/ })).toBeVisible()
 })

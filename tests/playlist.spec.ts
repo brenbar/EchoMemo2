@@ -467,6 +467,13 @@ test('playlist playback jumps between tracks with next/previous', async ({ page 
   await expect(page.locator('li', { hasText: 'Clip A' }).getByText('Playing')).toBeVisible()
 })
 
+test('playlist playback uses fixed header title and shows playlist name in the player card', async ({ page }) => {
+  await createPlaylistAtRoot(page, 'Header Copy Playlist', ['Clip Alpha', 'Clip Beta'])
+
+  await expect(page.getByRole('heading', { name: 'Playlist', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Header Copy Playlist', level: 2 })).toBeVisible()
+})
+
 test('playlist repeats after the final track ends', async ({ page }) => {
   await createPlaylistAtRoot(page, 'Loop Test', ['First Clip', 'Second Clip'])
 

@@ -274,13 +274,16 @@ export default function PlaybackPage() {
   return (
     <div className="flex flex-col gap-5 text-slate-900 dark:text-slate-100">
       <PageHeader
-        title={recording?.name ?? 'Loading…'}
+        title="Recording"
         onBack={() => navigate(returnTo)}
         backAriaLabel="Back to list"
         titleClassName="text-lg font-bold text-slate-900 dark:text-slate-50"
       />
       <div className="grid gap-5 lg:grid-cols-[2fr,1fr]">
         <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+          {recording?.name ?? 'Loading recording…'}
+        </h2>
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
         <div className="pt-4 mt-5 flex flex-col gap-3">
           <audio ref={audioRef} className="hidden" />

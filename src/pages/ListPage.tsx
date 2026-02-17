@@ -86,7 +86,7 @@ export default function ListPage() {
 
   const moveDisabled = !moveTarget || isSameLocation || isInvalidDestination
   const moveButtonLabel = isSameLocation ? "Stay" : `Move to '${destinationName}'`
-  const headerTitle = activeParentId ? currentFolder?.name ?? 'Folder' : 'Library'
+  const headerTitle = activeParentId ? currentFolder?.name ?? 'Folder' : ''
 
   const getDescendantCount = useCallback(
     (targetId: string) => {
