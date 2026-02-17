@@ -43,7 +43,17 @@ export default function Modal({
 }: Props) {
   const panelRef = useRef<HTMLDivElement | null>(null)
   const previousFocusRef = useRef<HTMLElement | null>(null)
+  const onCloseRef = useRef(onClose)
+  const closeOnEscapeRef = useRef(closeOnEscape)
   const titleId = useId()
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+
+  useEffect(() => {
+    closeOnEscapeRef.current = closeOnEscape
+  }, [closeOnEscape])
 
   useEffect(() => {
     if (!open) return undefined
@@ -56,9 +66,9 @@ export default function Modal({
     initialFocus.focus()
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && closeOnEscape) {
+      if (event.key === 'Escape' && closeOnEscapeRef.current) {
         event.preventDefault()
-        onClose()
+        onCloseRef.current()
         return
       }
 
@@ -98,7 +108,7 @@ export default function Modal({
         }
       }, 0)
     }
-  }, [closeOnEscape, open, onClose])
+  }, [open])
 
   if (!open) return null
 

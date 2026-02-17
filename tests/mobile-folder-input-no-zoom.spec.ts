@@ -112,6 +112,29 @@ test.describe('mobile folder creation input', () => {
     await expectFontSizeAtLeast16(nameInput)
   })
 
+  test('recording name input keeps focus while typing on mobile', async ({ page }) => {
+    await page.goto('/')
+    await clickNewAction(page, 'New recording')
+
+    await page.locator('textarea').fill('Focus stability check')
+    await page.getByRole('button', { name: 'Start recording' }).click()
+    const stopButton = page.getByRole('button', { name: 'Stop recording' })
+    await stopButton.waitFor({ state: 'visible' })
+    await stopButton.click()
+
+    const nameInput = page.getByLabel('Recording name')
+    await expect(nameInput).toBeVisible()
+    await nameInput.click()
+    await expect(nameInput).toBeFocused()
+
+    for (const ch of ['a', 'b', 'c']) {
+      await page.keyboard.type(ch)
+      await expect(nameInput).toBeFocused()
+    }
+
+    await expect(page.getByRole('button', { name: 'Close dialog' })).not.toBeFocused()
+  })
+
   test('rename modal title matches item type (folder vs recording)', async ({ page }) => {
     await page.goto('/')
 
