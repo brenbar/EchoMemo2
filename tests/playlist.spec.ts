@@ -147,6 +147,18 @@ test.beforeEach(async ({ page }) => {
   await setupBrowserStubs(page)
 })
 
+test('new playlist actions are in a floating bottom footer', async ({ page }) => {
+  await page.goto('/')
+  await createRecordingInCurrentView(page, 'Footer Clip One')
+  await createRecordingInCurrentView(page, 'Footer Clip Two')
+
+  await clickNewAction(page, 'New playlist')
+  const footer = page.getByTestId('playlist-editor-floating-footer')
+  await expect(footer).toBeVisible()
+  await expect(footer.getByRole('button', { name: 'Cancel' })).toBeVisible()
+  await expect(footer.getByRole('button', { name: 'Save playlist' })).toBeVisible()
+})
+
 test('user can create a playlist from a folder and adjust repeats', async ({ page }) => {
   await page.goto('/')
 

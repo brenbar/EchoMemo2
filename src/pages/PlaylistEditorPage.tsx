@@ -252,7 +252,7 @@ export default function PlaylistEditorPage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 text-slate-900 dark:text-slate-100">
+    <div className="flex flex-col gap-5 pb-24 text-slate-900 dark:text-slate-100">
       <div className="flex items-center justify-between gap-3">
         <button
           className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -402,21 +402,6 @@ export default function PlaylistEditorPage() {
             )}
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              className="rounded-full px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-              onClick={goBack}
-            >
-              Cancel
-            </button>
-            <button
-              className="rounded-full bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-400 dark:disabled:bg-slate-700"
-              disabled={!canSave}
-              onClick={handleSave}
-            >
-              {isEditMode ? 'Save changes' : 'Save playlist'}
-            </button>
-          </div>
         </div>
       </section>
 
@@ -588,6 +573,26 @@ export default function PlaylistEditorPage() {
           </div>
         </div>
       </Modal>
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-slate-700 dark:bg-slate-950/90">
+        <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
+          <div data-testid="playlist-editor-floating-footer" className="flex w-full items-center gap-3">
+            <button
+              className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              onClick={goBack}
+            >
+              Cancel
+            </button>
+            <button
+              className="flex-1 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-slate-400 dark:disabled:bg-slate-700"
+              disabled={!canSave}
+              onClick={handleSave}
+            >
+              {isEditMode ? 'Save changes' : 'Save playlist'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

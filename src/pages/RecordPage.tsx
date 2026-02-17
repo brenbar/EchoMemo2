@@ -109,7 +109,7 @@ export default function RecordPage() {
   }
 
   return (
-    <div className="grid gap-5 text-slate-900 dark:text-slate-100 lg:grid-cols-[2fr,1fr]">
+    <div className="grid gap-5 pb-24 text-slate-900 dark:text-slate-100 lg:grid-cols-[2fr,1fr]">
       <div className="rounded-2xl bg-white/80 p-5 shadow-md dark:bg-slate-900/80 dark:shadow-black/30">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -128,30 +128,6 @@ export default function RecordPage() {
           placeholder="Paste or type what you want to memorize. The text stays visible while you record."
         />
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            className="rounded-full px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-            onClick={() => navigate(parentId ? `/folder/${parentId}` : '/')}
-            disabled={isRecording}
-          >
-            Cancel
-          </button>
-          {!isRecording ? (
-            <button
-              className="rounded-full bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500"
-              onClick={startRecording}
-            >
-              Start recording
-            </button>
-          ) : (
-            <button
-              className="rounded-full bg-rose-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-500"
-              onClick={stopRecording}
-            >
-              Stop & save
-            </button>
-          )}
-        </div>
       </div>
 
       <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 p-4 shadow-inner dark:border-slate-700 dark:bg-slate-900/60">
@@ -232,6 +208,35 @@ export default function RecordPage() {
           You have an unsaved recording. If you discard now, this recording will be lost.
         </p>
       </Modal>
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-slate-700 dark:bg-slate-950/90">
+        <div className="mx-auto flex w-full max-w-5xl items-center gap-3">
+          <div data-testid="record-page-floating-footer" className="flex w-full items-center gap-3">
+            <button
+              className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:bg-slate-800"
+              onClick={() => navigate(parentId ? `/folder/${parentId}` : '/')}
+              disabled={isRecording}
+            >
+              Cancel
+            </button>
+            {!isRecording ? (
+              <button
+                className="flex-1 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
+                onClick={startRecording}
+              >
+                Start recording
+              </button>
+            ) : (
+              <button
+                className="flex-1 rounded-xl bg-rose-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-rose-500"
+                onClick={stopRecording}
+              >
+                Stop & save
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

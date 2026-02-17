@@ -114,6 +114,16 @@ test('user can record and see entry in library', async ({ page }) => {
   await expect(page.locator('div[role="button"]', { hasText: name }).first()).toBeVisible()
 })
 
+test('new recording actions are in a floating bottom footer', async ({ page }) => {
+  await page.goto('/')
+  await clickNewAction(page, 'New recording')
+
+  const footer = page.getByTestId('record-page-floating-footer')
+  await expect(footer).toBeVisible()
+  await expect(footer.getByRole('button', { name: 'Cancel' })).toBeVisible()
+  await expect(footer.getByRole('button', { name: 'Start recording' })).toBeVisible()
+})
+
 test('library row opens on Space key', async ({ page }) => {
   const name = 'Space key open'
   await createRecording(page, name)
