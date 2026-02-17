@@ -216,7 +216,7 @@ test('cannot move a folder into itself (or its descendants)', async ({ page }) =
   // Open move modal for the source folder.
   const row = page.locator('div[role="button"][tabindex="0"]').filter({ hasText: 'Move Source' }).first()
   await row.getByRole('button', { name: 'Item actions' }).click()
-  await page.getByRole('menuitem', { name: 'Move' }).click()
+  await page.getByRole('button', { name: 'Move', exact: true }).click()
 
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
@@ -278,7 +278,7 @@ test('move modal lists folders alphabetically', async ({ page }) => {
 
   const row = page.locator('div[role="button"][tabindex="0"]').filter({ hasText: 'Move Target' }).first()
   await row.getByRole('button', { name: 'Item actions' }).click()
-  await page.getByRole('menuitem', { name: 'Move' }).click()
+  await page.getByRole('button', { name: 'Move', exact: true }).click()
 
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()

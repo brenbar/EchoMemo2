@@ -97,12 +97,12 @@ test('warns and updates playlists when deleting a recording', async ({ page }) =
 
   const recordingRow = page.locator('div[role="button"]', { hasText: 'Remove Clip' }).first()
   await recordingRow.getByRole('button', { name: 'Item actions', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Delete' }).click()
+  await page.getByRole('button', { name: 'Delete', exact: true }).click()
 
   const dialog = page.getByRole('dialog').last()
   await expect(dialog.getByTestId('playlist-warning-list')).toContainText('Mix One')
 
-  await dialog.getByRole('button', { name: 'Delete' }).click()
+  await dialog.getByRole('button', { name: 'Delete', exact: true }).click()
 
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByText('Remove Clip')).toHaveCount(0)
@@ -131,13 +131,13 @@ test('deleting a playlist clarifies that recordings remain in the library', asyn
 
   const playlistRow = page.locator('div[role="button"]', { hasText: 'Delete Playlist Copy' }).first()
   await playlistRow.getByRole('button', { name: 'Item actions', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Delete' }).click()
+  await page.getByRole('button', { name: 'Delete', exact: true }).click()
 
   const dialog = page.getByRole('dialog').last()
   await expect(dialog.getByText(/Recordings in this playlist will stay in your library/i)).toBeVisible()
   await expect(dialog.getByText(/No playlists currently include this recording/i)).toHaveCount(0)
 
-  await dialog.getByRole('button', { name: 'Delete' }).click()
+  await dialog.getByRole('button', { name: 'Delete', exact: true }).click()
   await expect(page.getByText('Delete Playlist Copy')).toHaveCount(0)
   await expect(page.getByText('Playlist Keep A')).toBeVisible()
   await expect(page.getByText('Playlist Keep B')).toBeVisible()

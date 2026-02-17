@@ -122,7 +122,7 @@ test.describe('mobile folder creation input', () => {
 
     const folderRow = page.locator('div[role="button"]', { hasText: 'Zoom Folder' }).first()
     await folderRow.getByRole('button', { name: 'Item actions', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Edit' }).click()
+    await page.getByRole('button', { name: 'Edit', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Rename folder' })).toBeVisible()
     await expectFontSizeAtLeast16(page.getByLabel('Item name'))
     await page.getByRole('button', { name: 'Cancel' }).click()
@@ -142,7 +142,7 @@ test.describe('mobile folder creation input', () => {
 
     const recRow = page.locator('div[role="button"]', { hasText: 'Zoom Recording' }).first()
     await recRow.getByRole('button', { name: 'Item actions', exact: true }).click()
-    await page.getByRole('menuitem', { name: 'Edit' }).click()
+    await page.getByRole('button', { name: 'Edit', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Rename recording' })).toBeVisible()
     await expectFontSizeAtLeast16(page.getByLabel('Item name'))
   })

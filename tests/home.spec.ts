@@ -143,7 +143,7 @@ test('user can rename a recording from the library', async ({ page }) => {
 
   const targetRow = page.locator('div[role="button"]', { hasText: original }).first()
   await targetRow.getByRole('button', { name: 'Item actions', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Edit' }).click()
+  await page.getByRole('button', { name: 'Edit', exact: true }).click()
   await page.getByLabel('Item name').fill(updated)
   await page.getByRole('button', { name: 'Save' }).click()
 
@@ -151,19 +151,27 @@ test('user can rename a recording from the library', async ({ page }) => {
   await expect(page.getByText(original)).toHaveCount(0)
 })
 
-test('row actions menu shows move, edit, and delete', async ({ page }) => {
+test('row actions expand and collapse with move, edit, and delete buttons', async ({ page }) => {
   const name = 'Actions demo'
   await createRecording(page, name)
 
   const row = page.locator('div[role="button"]', { hasText: name }).first()
-  await row.getByRole('button', { name: 'Item actions', exact: true }).click()
+  const actionsTrigger = row.getByRole('button', { name: 'Item actions', exact: true })
+  await expect(actionsTrigger).toHaveAttribute('aria-expanded', 'false')
+  await expect(row.getByRole('button', { name: 'Move', exact: true })).toHaveCount(0)
 
-  const menu = page.getByRole('menu', { name: 'Item actions' })
-  await expect(menu.getByRole('menuitem', { name: 'Move' })).toBeVisible()
-  await expect(menu.getByRole('menuitem', { name: 'Edit' })).toBeVisible()
-  await expect(menu.getByRole('menuitem', { name: 'Delete' })).toBeVisible()
+  await actionsTrigger.click()
+  await expect(actionsTrigger).toHaveAttribute('aria-expanded', 'true')
+  await expect(row.getByRole('button', { name: 'Move', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Edit', exact: true })).toBeVisible()
+  await expect(row.getByRole('button', { name: 'Delete', exact: true })).toBeVisible()
 
-  await menu.getByRole('menuitem', { name: 'Edit' }).click()
+  await actionsTrigger.click()
+  await expect(actionsTrigger).toHaveAttribute('aria-expanded', 'false')
+  await expect(row.getByRole('button', { name: 'Move', exact: true })).toHaveCount(0)
+
+  await actionsTrigger.click()
+  await row.getByRole('button', { name: 'Edit', exact: true }).click()
   await expect(page.getByLabel('Item name')).toBeVisible()
   await page.getByRole('button', { name: 'Cancel' }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
@@ -198,8 +206,8 @@ test('user can delete a recording', async ({ page }) => {
 
   const targetRow = page.locator('div[role="button"]', { hasText: name }).first()
   await targetRow.getByRole('button', { name: 'Item actions', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Delete' }).click()
-  await page.getByRole('dialog').getByRole('button', { name: 'Delete' }).click()
+  await page.getByRole('button', { name: 'Delete', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click()
 
   await expect(page.getByText(name)).toHaveCount(0)
   await expect(page.getByRole('button', { name: '_free' })).toBeVisible()

@@ -105,12 +105,12 @@ test('deleting a non-empty folder requires acknowledgement and removes nested co
 
   const parentRow = page.locator('div[role="button"]', { hasText: 'Parent Folder' }).first()
   await parentRow.getByRole('button', { name: 'Item actions', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Delete' }).click()
+  await page.getByRole('button', { name: 'Delete', exact: true }).click()
 
   const dialog = page.getByRole('dialog').last()
   await expect(dialog.getByText(/2 items inside will also be deleted/i)).toBeVisible()
 
-  const deleteButton = dialog.getByRole('button', { name: 'Delete' })
+  const deleteButton = dialog.getByRole('button', { name: 'Delete', exact: true })
   await expect(deleteButton).toBeDisabled()
 
   await dialog.getByLabel(/permanently delete this folder/i).check()

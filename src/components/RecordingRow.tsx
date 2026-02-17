@@ -15,23 +15,20 @@ export default function RecordingRow({ recording, onOpen, onRename, onDelete, on
   const isPlaylist = (recording as PlaylistMeta).isPlaylist === true || recording.kind === 'playlist'
   const displayKind = isFolder ? 'Folder' : isPlaylist ? 'Playlist' : 'Recording'
   const playlistEntries = isPlaylist ? (recording as PlaylistMeta).entries?.length ?? 0 : 0
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement | null>(null)
-  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const [actionsExpanded, setActionsExpanded] = useState(false)
   const actionsAreaRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    if (!menuOpen) return
+    if (!actionsExpanded) return
 
     const handleOutside = (event: MouseEvent) => {
       const target = event.target as Node
-      if (menuRef.current?.contains(target)) return
-      if (triggerRef.current?.contains(target)) return
-      setMenuOpen(false)
+      if (actionsAreaRef.current?.contains(target)) return
+      setActionsExpanded(false)
     }
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMenuOpen(false)
+      if (event.key === 'Escape') setActionsExpanded(false)
     }
 
     document.addEventListener('mousedown', handleOutside)
@@ -40,7 +37,7 @@ export default function RecordingRow({ recording, onOpen, onRename, onDelete, on
       document.removeEventListener('mousedown', handleOutside)
       document.removeEventListener('keyup', handleEscape)
     }
-  }, [menuOpen])
+  }, [actionsExpanded])
 
   return (
     <div
@@ -59,7 +56,7 @@ export default function RecordingRow({ recording, onOpen, onRename, onDelete, on
         }
       }}
     >
-      <div className="flex flex-col gap-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-slate-50">
           {isFolder ? (
             <svg
@@ -103,9 +100,9 @@ export default function RecordingRow({ recording, onOpen, onRename, onDelete, on
               <path d="M12 16h0.01" />
             </svg>
           )}
-          <span>{recording.name}</span>
+          <span className="truncate">{recording.name}</span>
         </div>
-        <div className="text-xs text-slate-500 dark:text-slate-400">
+        <div className="truncate text-xs text-slate-500 dark:text-slate-400">
           {isFolder && displayKind}
           {isPlaylist && `${displayKind} · ${playlistEntries} item${playlistEntries === 1 ? '' : 's'}`}
           {!isFolder && !isPlaylist && `${formatDuration(recording.duration)} · ${formatBytes(recording.size)}`}
@@ -118,16 +115,99 @@ export default function RecordingRow({ recording, onOpen, onRename, onDelete, on
         onMouseDown={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
+        <div
+          aria-hidden={!actionsExpanded}
+          className={`flex items-center gap-2 overflow-hidden transition-all duration-200 ease-out ${
+            actionsExpanded
+              ? 'mr-2 max-w-[11rem] opacity-100 pointer-events-auto'
+              : 'mr-0 max-w-0 opacity-0 pointer-events-none'
+          }`}
+        >
+          <button
+            type="button"
+            tabIndex={actionsExpanded ? 0 : -1}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            aria-label="Move"
+            onClick={() => {
+              setActionsExpanded(false)
+              onMove()
+            }}
+          >
+            <svg
+              aria-hidden
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              className="h-4 w-4"
+            >
+              <path d="M12 3v18" />
+              <path d="M6 9l6-6 6 6" />
+              <path d="M18 15l-6 6-6-6" />
+            </svg>
+            <span className="sr-only">Move</span>
+          </button>
+          <button
+            type="button"
+            tabIndex={actionsExpanded ? 0 : -1}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            aria-label="Edit"
+            onClick={() => {
+              setActionsExpanded(false)
+              onRename()
+            }}
+          >
+            <svg
+              aria-hidden
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              className="h-4 w-4"
+            >
+              <path d="M3 21h4l11-11a2.8 2.8 0 0 0-4-4L3 17v4Z" />
+              <path d="M14 6l4 4" />
+            </svg>
+            <span className="sr-only">Edit</span>
+          </button>
+          <button
+            type="button"
+            tabIndex={actionsExpanded ? 0 : -1}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100 focus:outline-none focus:ring-2 focus:ring-rose-500 dark:border-rose-700 dark:bg-rose-900/40 dark:text-rose-100 dark:hover:bg-rose-900/60"
+            aria-label="Delete"
+            onClick={() => {
+              setActionsExpanded(false)
+              onDelete()
+            }}
+          >
+            <svg
+              aria-hidden
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              className="h-4 w-4"
+            >
+              <path d="M4 7h16" />
+              <path d="M10 11v6" />
+              <path d="M14 11v6" />
+              <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12" />
+              <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+            </svg>
+            <span className="sr-only">Delete</span>
+          </button>
+        </div>
         <button
-          ref={triggerRef}
           type="button"
           className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-700 transition hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           aria-label="Item actions"
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
+          aria-expanded={actionsExpanded}
           onClick={(e) => {
             e.stopPropagation()
-            setMenuOpen((open) => !open)
+            setActionsExpanded((open) => !open)
           }}
         >
           <svg
@@ -145,90 +225,6 @@ export default function RecordingRow({ recording, onOpen, onRename, onDelete, on
           </svg>
           <span className="sr-only">Item actions</span>
         </button>
-
-        {menuOpen && (
-          <div
-            ref={menuRef}
-            role="menu"
-            aria-label="Item actions"
-            className="absolute right-0 top-12 z-40 w-44 rounded-xl border border-slate-200 bg-white/95 p-1 text-sm shadow-lg backdrop-blur dark:border-slate-700 dark:bg-slate-900/95"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-700 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
-              onClick={() => {
-                setMenuOpen(false)
-                onMove()
-              }}
-            >
-              <svg
-                aria-hidden
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                className="h-4 w-4"
-              >
-                <path d="M12 3v18" />
-                <path d="M6 9l6-6 6 6" />
-                <path d="M18 15l-6 6-6-6" />
-              </svg>
-              Move
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-slate-700 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
-              onClick={() => {
-                setMenuOpen(false)
-                onRename()
-              }}
-            >
-              <svg
-                aria-hidden
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                className="h-4 w-4"
-              >
-                <path d="M3 21h4l11-11a2.8 2.8 0 0 0-4-4L3 17v4Z" />
-                <path d="M14 6l4 4" />
-              </svg>
-              Edit
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-rose-700 transition hover:bg-rose-50 dark:text-rose-100 dark:hover:bg-rose-900/40"
-              onClick={() => {
-                setMenuOpen(false)
-                onDelete()
-              }}
-            >
-              <svg
-                aria-hidden
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                className="h-4 w-4"
-              >
-                <path d="M4 7h16" />
-                <path d="M10 11v6" />
-                <path d="M14 11v6" />
-                <path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12" />
-                <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-              </svg>
-              Delete
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )

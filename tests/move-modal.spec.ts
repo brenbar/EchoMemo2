@@ -98,7 +98,7 @@ test('move modal disables action when staying put and updates when selecting a f
 
   const actionsButton = page.getByRole('button', { name: 'Item actions', exact: true }).last()
   await actionsButton.click()
-  await page.getByRole('menuitem', { name: 'Move' }).click()
+  await page.getByRole('button', { name: 'Move', exact: true }).click()
 
   const dialog = page.getByRole('dialog').last()
   await expect(dialog).toBeVisible()
