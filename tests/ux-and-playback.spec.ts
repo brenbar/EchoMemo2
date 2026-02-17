@@ -304,6 +304,8 @@ test('record naming modal confirms before discarding when closed', async ({ page
 
   await page.getByRole('button', { name: 'Discard' }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page).toHaveURL(/\/record$/)
+  await expect(page.getByRole('button', { name: 'Start recording' })).toBeVisible()
 })
 
 test('recording save stores audio bytes when Blob persistence fails', async ({ page }) => {

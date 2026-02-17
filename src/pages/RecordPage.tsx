@@ -86,10 +86,16 @@ export default function RecordPage() {
     setIsRecording(false)
   }
 
-  const discardAndExit = () => {
+  const discardAndReset = () => {
     setShowDiscardConfirm(false)
     setShowNameModal(false)
-    navigate(parentId ? `/folder/${parentId}` : '/')
+    setIsRecording(false)
+    setError(null)
+    setDuration(0)
+    setProposedName(fallbackName)
+    startTimeRef.current = null
+    chunksRef.current = []
+    mediaRecorderRef.current = null
   }
 
   const requestDiscardConfirmation = () => {
@@ -135,7 +141,7 @@ export default function RecordPage() {
           <>
             <button
               className="rounded-full px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-              onClick={discardAndExit}
+              onClick={discardAndReset}
             >
               Discard
             </button>
@@ -182,7 +188,7 @@ export default function RecordPage() {
             </button>
             <button
               className="rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500"
-              onClick={discardAndExit}
+              onClick={discardAndReset}
             >
               Discard recording
             </button>
