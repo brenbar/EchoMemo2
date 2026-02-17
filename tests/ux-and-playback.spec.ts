@@ -117,7 +117,7 @@ async function createRecording(page: Page, name = 'Sample clip', waitMs = 0, opt
   if (waitMs > 0) {
     await page.waitForTimeout(waitMs)
   }
-  const stopButton = page.getByRole('button', { name: 'Stop & save' })
+  const stopButton = page.getByRole('button', { name: 'Stop recording' })
   await stopButton.waitFor({ state: 'visible' })
   await stopButton.click()
   const recordingNameInput = page.getByLabel('Recording name')
@@ -271,19 +271,39 @@ test('record page updates elapsed time while recording', async ({ page }) => {
   await page.goto('/')
   await clickNewAction(page, 'New recording')
   await page.getByRole('button', { name: 'Start recording' }).click()
+  const recordingModal = page.getByTestId('recording-fullscreen-modal')
+  await expect(recordingModal).toBeVisible()
 
   await expect
     .poll(async () => {
-      const timerText = await page
-        .locator('div', { hasText: /Recording…\s+0:/ })
-        .last()
-        .textContent()
+      const timerText = await recordingModal.locator('div', { hasText: /Elapsed 0:/ }).first().textContent()
       return timerText ?? ''
     })
-    .toMatch(/Recording…\s+0:0[1-9]/)
+    .toMatch(/Elapsed 0:0[1-9]/)
 
-  await page.getByRole('button', { name: 'Stop & save' }).click()
+  await page.getByRole('button', { name: 'Stop recording' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Discard' }).click()
+})
+
+test('recording mode uses fullscreen script modal with one stop action', async ({ page }) => {
+  await setupDefaultStubs(page)
+
+  await page.goto('/')
+  await clickNewAction(page, 'New recording')
+  await page.locator('textarea').fill('Line one\nLine two')
+  await page.getByRole('button', { name: 'Start recording' }).click()
+
+  const recordingModal = page.getByTestId('recording-fullscreen-modal')
+  await expect(recordingModal).toBeVisible()
+  await expect(recordingModal.getByText('Line one')).toBeVisible()
+  await expect(recordingModal.getByText('Line two')).toBeVisible()
+  await expect(recordingModal.getByRole('button')).toHaveCount(1)
+  await expect(recordingModal.getByRole('button', { name: 'Stop recording' })).toBeVisible()
+  await expect(page.getByTestId('record-page-floating-footer')).toHaveCount(0)
+
+  await recordingModal.getByRole('button', { name: 'Stop recording' }).click()
+  await expect(page.getByRole('heading', { name: 'Name your recording' })).toBeVisible()
+  await page.getByRole('button', { name: 'Discard' }).click()
 })
 
 test('record naming modal confirms before discarding when closed', async ({ page }) => {
@@ -293,7 +313,7 @@ test('record naming modal confirms before discarding when closed', async ({ page
   await clickNewAction(page, 'New recording')
   await page.locator('textarea').fill('Discard guard clip')
   await page.getByRole('button', { name: 'Start recording' }).click()
-  await page.getByRole('button', { name: 'Stop & save' }).click()
+  await page.getByRole('button', { name: 'Stop recording' }).click()
 
   await expect(page.getByRole('heading', { name: 'Name your recording' })).toBeVisible()
   await page.keyboard.press('Escape')

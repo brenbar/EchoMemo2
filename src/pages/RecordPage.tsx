@@ -207,39 +207,56 @@ export default function RecordPage() {
         </p>
       </Modal>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-slate-700 dark:bg-slate-950/90">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-2">
-          {isRecording && (
-            <div className="w-full rounded-xl bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-100">
-              Recording… {duration ? formatDuration(duration) : ''}
-            </div>
-          )}
-          <div data-testid="record-page-floating-footer" className="flex w-full items-center gap-3">
-            <button
-              className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:bg-slate-800"
-              onClick={() => navigate(parentId ? `/folder/${parentId}` : '/')}
-              disabled={isRecording}
-            >
-              Cancel
-            </button>
-            {!isRecording ? (
+      {!isRecording && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-slate-700 dark:bg-slate-950/90">
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-2">
+            <div data-testid="record-page-floating-footer" className="flex w-full items-center gap-3">
+              <button
+                className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                onClick={() => navigate(parentId ? `/folder/${parentId}` : '/')}
+              >
+                Cancel
+              </button>
               <button
                 className="flex-1 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
                 onClick={startRecording}
               >
                 Start recording
               </button>
-            ) : (
-              <button
-                className="flex-1 rounded-xl bg-rose-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-rose-500"
-                onClick={stopRecording}
-              >
-                Stop & save
-              </button>
-            )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      <Modal
+        open={isRecording}
+        title="Recording"
+        onClose={() => {}}
+        panelClassName="max-h-[92vh] max-w-4xl"
+        bodyClassName="pb-5"
+        hideCloseButton
+        closeOnEscape={false}
+        testId="recording-fullscreen-modal"
+        footer={
+          <button
+            className="w-full rounded-xl bg-rose-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-rose-500"
+            onClick={stopRecording}
+          >
+            Stop recording
+          </button>
+        }
+      >
+        <div className="flex min-h-0 flex-1 flex-col gap-4">
+          <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+            {duration ? `Elapsed ${formatDuration(duration)}` : 'Elapsed 0:00'}
+          </div>
+          <div className="flex min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/70">
+            <p className="whitespace-pre-wrap text-base leading-relaxed text-slate-800 dark:text-slate-100">
+              {script.trim() ? script : 'No script provided.'}
+            </p>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

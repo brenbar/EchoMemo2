@@ -103,7 +103,7 @@ test.describe('mobile folder creation input', () => {
 
     await script.fill('Mobile zoom check')
     await page.getByRole('button', { name: 'Start recording' }).click()
-    const stopButton = page.getByRole('button', { name: 'Stop & save' })
+    const stopButton = page.getByRole('button', { name: 'Stop recording' })
     await stopButton.waitFor({ state: 'visible' })
     await stopButton.click()
 
@@ -131,7 +131,7 @@ test.describe('mobile folder creation input', () => {
     await clickNewAction(page, 'New recording')
     await page.locator('textarea').fill('Zoom Recording')
     await page.getByRole('button', { name: 'Start recording' }).click()
-    const stopButton = page.getByRole('button', { name: 'Stop & save' })
+    const stopButton = page.getByRole('button', { name: 'Stop recording' })
     await stopButton.waitFor({ state: 'visible' })
     await stopButton.click()
     const recordingNameInput = page.getByLabel('Recording name')

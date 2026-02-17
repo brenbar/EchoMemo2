@@ -13,7 +13,7 @@ export async function ensureRecordingVisible(
   await expect(row).toBeVisible({ timeout: 2500 }).catch(async () => {
     const pathname = new URL(page.url()).pathname
     if (pathname === '/record') {
-      const stopButton = page.getByRole('button', { name: 'Stop & save' })
+      const stopButton = page.getByRole('button', { name: 'Stop recording' })
       if (await stopButton.count()) {
         await stopButton.first().click().catch(() => {})
       }

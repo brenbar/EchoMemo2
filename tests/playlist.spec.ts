@@ -92,7 +92,7 @@ async function createRecordingInCurrentView(page: Page, name: string) {
 
   await page.locator('textarea').fill(name)
   await page.getByRole('button', { name: 'Start recording' }).click()
-  const stopButton = page.getByRole('button', { name: 'Stop & save' })
+  const stopButton = page.getByRole('button', { name: 'Stop recording' })
   await stopButton.waitFor({ state: 'visible' })
   await stopButton.click()
 

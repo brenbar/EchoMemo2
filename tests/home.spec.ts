@@ -66,7 +66,7 @@ async function createRecording(page: Page, name = 'Sample script for testing') {
 
   await page.locator('textarea').fill(name)
   await page.getByRole('button', { name: 'Start recording' }).click()
-  const stopButton = page.getByRole('button', { name: 'Stop & save' })
+  const stopButton = page.getByRole('button', { name: 'Stop recording' })
   await stopButton.waitFor({ state: 'visible' })
   await stopButton.click()
   // Ensure the save modal is present before proceeding.
