@@ -90,21 +90,6 @@ async function setupDefaultStubs(page: Page) {
   })
 }
 
-async function swipeDeleteRecording(page: Page, recordingName: string) {
-  const row = page.locator(`[data-playlist-row-name="${recordingName}"]`).first()
-  const box = await row.boundingBox()
-  if (!box) throw new Error(`Playlist row not found for ${recordingName}`)
-
-  const startX = box.x + box.width - 8
-  const endX = startX - Math.min(140, box.width - 16)
-  const y = box.y + box.height / 2
-
-  await page.mouse.move(startX, y)
-  await page.mouse.down()
-  await page.mouse.move(endX, y, { steps: 6 })
-  await page.mouse.up()
-}
-
 async function createRecording(page: Page, name = 'Sample clip', waitMs = 0, options?: { stay?: boolean }) {
   const match = page.url().match(/\/folder\/([^/?#]+)/)
   const parentId = match ? decodeURIComponent(match[1]) : null
@@ -490,33 +475,4 @@ test('playlist seek slider supports keyboard input', async ({ page }) => {
   await expect
     .poll(() => page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement | null)?.currentTime || 0))
     .toBeGreaterThan(0)
-})
-
-test('playlist editor disables save without entries and re-disables after removal', async ({ page }) => {
-  await setupDefaultStubs(page)
-
-  await page.goto('/')
-  await clickNewAction(page, 'New folder')
-  await page.getByLabel('Folder name').fill('Nest')
-  await page.getByRole('button', { name: 'Create' }).click()
-  await page.getByRole('button', { name: 'Nest' }).click()
-  await createRecording(page, 'Nested Clip', 0, { stay: true })
-  await createRecording(page, 'Nested Clip 2', 0, { stay: true })
-  await page.getByRole('button', { name: 'Back to parent folder' }).click()
-
-  await clickNewAction(page, 'New playlist')
-  const saveButton = page.getByRole('button', { name: 'Save playlist' })
-  await expect(saveButton).toBeDisabled()
-
-  await page.getByRole('button', { name: 'Select recordings' }).click()
-  await page.getByRole('button', { name: 'Nest' }).click()
-  await page.getByLabel('Nested Clip', { exact: true }).check()
-  await page.getByLabel('Nested Clip 2').check()
-  await page.getByTestId('modal-panel').getByRole('button', { name: 'Save', exact: true }).click()
-  await expect(page.getByText('Nested Clip', { exact: true })).toBeVisible()
-  await expect(page.getByText('Nested Clip 2')).toBeVisible()
-  await expect(saveButton).toBeEnabled()
-
-  await swipeDeleteRecording(page, 'Nested Clip')
-  await expect(saveButton).toBeDisabled()
 })

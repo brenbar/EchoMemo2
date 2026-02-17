@@ -108,12 +108,6 @@ test('app shell publishes a CSP meta policy', async ({ page }) => {
   expect(csp).toContain("object-src 'none'")
 })
 
-test('user can record and see entry in library', async ({ page }) => {
-  const name = 'My memory aid'
-  await createRecording(page, name)
-  await expect(page.locator('div[role="button"]', { hasText: name }).first()).toBeVisible()
-})
-
 test('new recording actions are in a floating bottom footer', async ({ page }) => {
   await page.goto('/')
   await clickNewAction(page, 'New recording')

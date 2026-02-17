@@ -484,6 +484,7 @@ test('playlist repeats after the final track ends', async ({ page }) => {
     })
   }
 
+  await expect(page.getByText(/Now playing: First Clip \(1\/1\)/)).toBeVisible()
   await expect(page.locator('li', { hasText: 'First Clip' }).getByText('Playing')).toBeVisible()
 
   await triggerEnded()
@@ -598,9 +599,3 @@ test('playlist repeat does not prematurely advance on spurious ended at t=0', as
   await expect(firstTrack.getByText('Playing')).toHaveCount(0)
 })
 
-
-test('shows now playing subtext on first iteration', async ({ page }) => {
-  await createPlaylistAtRoot(page, 'Now Playing Copy', ['Solo Clip', 'Second Solo'])
-
-  await expect(page.getByText(/Now playing: Solo Clip \(1\/1\)/)).toBeVisible()
-})

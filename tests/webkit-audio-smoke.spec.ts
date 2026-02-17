@@ -35,7 +35,7 @@ test.beforeEach(async ({ page }) => {
   await setupAudioStubs(page)
 })
 
-test('webkit smoke: free recording playback loops when ended fires', async ({ page }) => {
+test('webkit smoke: free sample playback loop and playlist advance', async ({ page }) => {
   await page.goto('/')
   await page.locator('div[role="button"]', { hasText: '_free' }).first().click()
   await page.locator('div[role="button"]', { hasText: 'Free 440 Hz' }).first().click()
@@ -54,9 +54,7 @@ test('webkit smoke: free recording playback loops when ended fires', async ({ pa
       page.evaluate(() => (document.querySelector('audio') as HTMLAudioElement | null)?.currentTime ?? 0),
     )
     .toBeLessThan(0.2)
-})
 
-test('webkit smoke: playlist repeat count is honored before advancing', async ({ page }) => {
   const playlistName = 'WebKit Repeat List'
   await page.goto('/')
   await createPlaylistFromFreeSamples(page, playlistName)

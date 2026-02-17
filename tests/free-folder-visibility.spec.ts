@@ -9,17 +9,15 @@ async function setupProdLikeHost(context: BrowserContext) {
   }, { hostOverride: HOST_OVERRIDE })
 }
 
-test('hides the free folder when host is production-like', async ({ page, context }) => {
+test('prod-like host hides free folder and does not offer New playlist when there are no recordings', async ({
+  page,
+  context,
+}) => {
   await setupProdLikeHost(context)
   await page.goto('/')
 
   await expect(page.getByRole('button', { name: '_free' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'New…' })).toBeVisible()
-})
-
-test('does not offer New playlist when there are no recordings', async ({ page, context }) => {
-  await setupProdLikeHost(context)
-  await page.goto('/')
 
   await openNewMenu(page)
   const newFolderAction = page.getByRole('menuitem', { name: 'New folder' })

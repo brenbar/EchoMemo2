@@ -11,17 +11,12 @@ async function openNukePage(page: Page, query = '') {
   }
 }
 
-test('nuke recovery page loads', async ({ page }) => {
-  await openNukePage(page)
+test('nuke recovery page loads and ignores autorun query param', async ({ page }) => {
+  await openNukePage(page, '?autorun=1')
 
   await expect(page).toHaveTitle(/EchoMemo Recovery/i)
   await expect(page.getByRole('heading', { name: /EchoMemo Recovery/i })).toBeVisible()
   await expect(page.getByRole('button', { name: /Run cleanup/i })).toBeVisible()
-})
-
-test('nuke recovery page ignores autorun query param', async ({ page }) => {
-  await openNukePage(page, '?autorun=1')
-
   await expect(page).toHaveURL(/nuke\.html(?:\?|$)/)
   await expect(page.getByText(/Auto-run via URL is disabled for safety/i)).toBeVisible()
 })
